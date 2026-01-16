@@ -1,4 +1,4 @@
-// Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/ashwinyue/eino-show. The professional
@@ -25,8 +25,8 @@ func ExampleCreateUserRequest() *apiv1.CreateUserRequest {
 	return &apiv1.CreateUserRequest{
 		Username: fmt.Sprintf("%d", time.Now().Unix()), // 随机生成一个单词作为用户名，并转换为小写
 		Password: "onex(#)666",                         // 设置固定密码
-		Nickname: ptr.To("孔令飞"),                        // 设置固定昵称
-		Email:    "colin404@foxmail.com",               // 设置固定邮箱地址
+		Nickname: ptr.To("阿斯温月"),                        // 设置固定昵称
+		Email:    "stary99c@163.com",               // 设置固定邮箱地址
 		Phone:    GeneratePhoneNumber(),                // 调用 GeneratePhoneNumber 随机生成一个手机号
 	}
 }

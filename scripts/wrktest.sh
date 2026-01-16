@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+# Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 # Use of this source code is governed by a MIT style
 # license that can be found in the LICENSE file. The original repo for
 # this file is https://github.com/ashwinyue/eino-show. The professional
@@ -53,7 +53,7 @@ OPTIONS:
   -n                     Performance test task name, default: mb-apiserver
   -d                     Directory used to store performance data and gnuplot graphic, default: _output/wrk
 
-Reprot bugs to <colin404@foxmail.com>.
+Reprot bugs to <stary99c@163.com>.
 EOF
 }
 

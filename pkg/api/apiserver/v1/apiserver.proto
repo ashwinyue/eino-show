@@ -1,4 +1,4 @@
-// Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/ashwinyue/eino-show. The professional
@@ -39,7 +39,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
         contact: {
             name: "小而美的博客项目";
             url: "https://github.com/ashwinyue/eino-show";
-            email: "colin404@foxmail.com";
+            email: "stary99c@163.com";
         };
         // 可信息和链接（这里使用 MIT License）
         license: {

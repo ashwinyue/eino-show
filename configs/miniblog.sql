@@ -1,4 +1,4 @@
--- Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+-- Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 -- Use of this source code is governed by a MIT style
 -- license that can be found in the LICENSE file. The original repo for
 -- this file is https://github.com/ashwinyue/eino-show. The professional
@@ -129,7 +129,7 @@ CREATE TABLE `user` (
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
 INSERT INTO `user` VALUES
-(96,'user-000000','root','$2a$10$ctsFXEUAMd7rXXpmccNlO.ZRiYGYz0eOfj8EicPGWqiz64YBBgR1y','colin404','colin404@foxmail.com','18110000000','2024-12-12 03:55:25','2024-12-12 03:55:25');
+(96,'user-000000','root','$2a$10$ctsFXEUAMd7rXXpmccNlO.ZRiYGYz0eOfj8EicPGWqiz64YBBgR1y','colin404','stary99c@163.com','18110000000','2024-12-12 03:55:25','2024-12-12 03:55:25');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

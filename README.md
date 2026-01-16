@@ -60,7 +60,7 @@ mb-apiserver 支持内存数据库和 MySQL 数据库，默认使用内存数据
 
 ## Feedback
 
-如果您有任何反馈，请通过 `colin404@foxmail.com` 与我联系。
+如果您有任何反馈，请通过 `stary99c@163.com` 与我联系。
 
 ## License
 

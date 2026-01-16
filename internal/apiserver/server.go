@@ -187,7 +187,7 @@ func (cfg *Config) NewDB() (*gorm.DB, error) {
 		Username:  "root",
 		Password:  "miniblog1234",
 		Nickname:  "administrator",
-		Email:     "colin404@foxmail.com",
+		Email:     "stary99c@163.com",
 		Phone:     "18110000000",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
