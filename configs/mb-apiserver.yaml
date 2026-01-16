@@ -21,18 +21,18 @@ jwt-key: Rtg8BPKNEf2mB4mgvKONGPZZQSaJWNLijxR42qRgq0iBb5
 # JWT Token 过期时间
 expiration: 2h
 # 指示是否启用内存数据库（用于测试或开发环境）.
-# 如果设置为 true 则忽略 mysql 配置.
-enable-memory-store: true
+# 如果设置为 true 则忽略 mysql/postgresql 配置.
+enable-memory-store: false
 
 # 安全服务器相关配置
 tls:
   # 是否启动 HTTPS 安全服务器
   # 生产环境建议开启 HTTPS。并使用 HTTPS 协议访问 API 接口
-  use-tls: true
+  use-tls: false
   # 证书
-  cert: /opt/miniblog/etc/cert/server.crt
+  cert: /opt/einoshow/etc/cert/server.crt
   # 证书 Key 文件
-  key: /opt/miniblog/etc/cert/server.key
+  key: /opt/einoshow/etc/cert/server.key
 
 # HTTP 服务器相关配置
 http:

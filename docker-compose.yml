@@ -1,0 +1,52 @@
+# eino-show 开发环境 docker-compose
+# 用于本地开发，只启动基础设施服务 (PostgreSQL + Redis)
+# 应用程序在本地运行
+
+services:
+  postgres:
+    # ParadeDB 带 pgvector 扩展的 PostgreSQL
+    image: paradedb/paradedb:v0.18.9-pg17
+    container_name: eino-show-postgres-dev
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER:-einoshow}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-einoshow1234}
+      - POSTGRES_DB=${DB_NAME:-einoshow}
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    networks:
+      - eino-show-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-einoshow}"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 1m
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: eino-show-redis-dev
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data-dev:/data
+    command: redis-server --appendonly yes
+    networks:
+      - eino-show-network-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  eino-show-network-dev:
+    driver: bridge
+
+volumes:
+  postgres-data-dev:
+  redis-data-dev:
