@@ -156,12 +156,14 @@ restart_services() {
 
 # 查看日志
 show_logs() {
+    detect_compose_cmd || return 1
     cd "$PROJECT_ROOT"
     "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.yml logs -f
 }
 
 # 查看状态
 show_status() {
+    detect_compose_cmd || return 1
     cd "$PROJECT_ROOT"
     "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD -f docker-compose.yml ps
 }
