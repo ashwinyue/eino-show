@@ -1,3 +1,7 @@
+# eino-show
+
+> Forked from [miniblog](https://github.com/onexstack/miniblog)
+
 # miniblog 项目
 
 ## 项目介绍

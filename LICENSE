@@ -1,6 +1,9 @@
 MIT License
 
+Copyright (c) 2024 colin404(孔令飞) <colin404@foxmail.com>
 Copyright (c) 2026 阿斯温月 <stary99c@163.com>
+
+本项目基于 https://github.com/onexstack/miniblog 构建
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
