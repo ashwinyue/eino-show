@@ -1,4 +1,4 @@
-// Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/ashwinyue/eino-show. The professional
@@ -46,6 +46,8 @@ type ServerOptions struct {
 	GRPCOptions *genericoptions.GRPCOptions `json:"grpc" mapstructure:"grpc"`
 	// MySQLOptions 包含 MySQL 配置选项.
 	MySQLOptions *genericoptions.MySQLOptions `json:"mysql" mapstructure:"mysql"`
+	// PostgreSQLOptions 包含 PostgreSQL 配置选项.
+	PostgreSQLOptions *genericoptions.PostgreSQLOptions `json:"postgresql" mapstructure:"postgresql"`
 }
 
 // NewServerOptions 创建带有默认值的 ServerOptions 实例.
@@ -59,6 +61,7 @@ func NewServerOptions() *ServerOptions {
 		HTTPOptions:       genericoptions.NewHTTPOptions(),
 		GRPCOptions:       genericoptions.NewGRPCOptions(),
 		MySQLOptions:      genericoptions.NewMySQLOptions(),
+		PostgreSQLOptions: genericoptions.NewPostgreSQLOptions(),
 	}
 	opts.HTTPOptions.Addr = ":5555"
 	opts.GRPCOptions.Addr = ":6666"
@@ -76,10 +79,11 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.EnableMemoryStore, "enable-memory-store", o.EnableMemoryStore, "Enable in-memory database (useful for testing or development).")
 
 	// 添加子选项的命令行标志
-	o.TLSOptions.AddFlags(fs)
-	o.HTTPOptions.AddFlags(fs)
-	o.GRPCOptions.AddFlags(fs)
-	o.MySQLOptions.AddFlags(fs)
+	o.TLSOptions.AddFlags(fs, "tls")
+	o.HTTPOptions.AddFlags(fs, "http")
+	o.GRPCOptions.AddFlags(fs, "grpc")
+	o.MySQLOptions.AddFlags(fs, "mysql")
+	o.PostgreSQLOptions.AddFlags(fs, "postgresql")
 }
 
 // Validate 校验 ServerOptions 中的选项是否合法.
@@ -100,6 +104,7 @@ func (o *ServerOptions) Validate() error {
 	errs = append(errs, o.TLSOptions.Validate()...)
 	errs = append(errs, o.HTTPOptions.Validate()...)
 	errs = append(errs, o.MySQLOptions.Validate()...)
+	errs = append(errs, o.PostgreSQLOptions.Validate()...)
 
 	// 如果是 gRPC 或 gRPC-Gateway 模式，校验 gRPC 配置
 	if stringsutil.StringIn(o.ServerMode, []string{apiserver.GRPCServerMode, apiserver.GRPCGatewayServerMode}) {
@@ -121,5 +126,6 @@ func (o *ServerOptions) Config() (*apiserver.Config, error) {
 		HTTPOptions:       o.HTTPOptions,
 		GRPCOptions:       o.GRPCOptions,
 		MySQLOptions:      o.MySQLOptions,
+		PostgreSQLOptions: o.PostgreSQLOptions,
 	}, nil
 }

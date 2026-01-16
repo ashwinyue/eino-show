@@ -1,4 +1,4 @@
-// Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/ashwinyue/eino-show. The professional
@@ -6,7 +6,7 @@
 
 package store
 
-//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,PostStore,ConcretePostStore
+//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,PostStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,ConcretePostStore
 
 import (
 	"context"
@@ -37,6 +37,11 @@ type IStore interface {
 
 	User() UserStore
 	Post() PostStore
+	Session() SessionStore
+	CustomAgent() CustomAgentStore
+	KnowledgeBase() KnowledgeBaseStore
+	Knowledge() KnowledgeStore
+	Chunk() ChunkStore
 	// ConcretePost ConcretePosts 是一个示例 store 实现，用来演示在 Go 中如何直接与 DB 交互.
 	ConcretePost() ConcretePostStore
 }
@@ -105,4 +110,29 @@ func (store *datastore) Post() PostStore {
 // ConcretePost 返回一个实现了 ConcretePostStore 接口的实例.
 func (store *datastore) ConcretePost() ConcretePostStore {
 	return newConcretePostStore(store)
+}
+
+// Session 返回一个实现了 SessionStore 接口的实例.
+func (store *datastore) Session() SessionStore {
+	return newSessionStore(store)
+}
+
+// CustomAgent 返回一个实现了 CustomAgentStore 接口的实例.
+func (store *datastore) CustomAgent() CustomAgentStore {
+	return newCustomAgentStore(store)
+}
+
+// KnowledgeBase 返回一个实现了 KnowledgeBaseStore 接口的实例.
+func (store *datastore) KnowledgeBase() KnowledgeBaseStore {
+	return newKnowledgeBaseStore(store)
+}
+
+// Knowledge 返回一个实现了 KnowledgeStore 接口的实例.
+func (store *datastore) Knowledge() KnowledgeStore {
+	return newKnowledgeStore(store)
+}
+
+// Chunk 返回一个实现了 ChunkStore 接口的实例.
+func (store *datastore) Chunk() ChunkStore {
+	return newChunkStore(store)
 }

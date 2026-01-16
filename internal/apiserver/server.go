@@ -1,4 +1,4 @@
-// Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/ashwinyue/eino-show. The professional
@@ -55,6 +55,7 @@ type Config struct {
 	HTTPOptions       *genericoptions.HTTPOptions
 	GRPCOptions       *genericoptions.GRPCOptions
 	MySQLOptions      *genericoptions.MySQLOptions
+	PostgreSQLOptions *genericoptions.PostgreSQLOptions
 }
 
 // UnionServer 定义一个联合服务器. 根据 ServerMode 决定要启动的服务器类型.
@@ -89,7 +90,7 @@ func (cfg *Config) NewUnionServer() (*UnionServer, error) {
 	})
 
 	// 初始化 token 包的签名密钥、认证 Key 及 Token 默认过期时间
-	token.Init(cfg.JWTKey, known.XUserID, cfg.Expiration)
+	token.Init(cfg.JWTKey, token.WithIdentityKey(known.XUserID), token.WithExpiration(cfg.Expiration))
 
 	log.Infow("Initializing federation server", "server-mode", cfg.ServerMode, "enable-memory-store", cfg.EnableMemoryStore)
 
@@ -131,8 +132,17 @@ func (s *UnionServer) Run() error {
 // NewDB 创建一个 *gorm.DB 实例.
 func (cfg *Config) NewDB() (*gorm.DB, error) {
 	if !cfg.EnableMemoryStore {
-		log.Infow("Initializing database connection", "type", "mysql", "addr", cfg.MySQLOptions.Addr)
-		return cfg.MySQLOptions.NewDB()
+		// 优先使用 PostgreSQL，如果配置了的话
+		if cfg.PostgreSQLOptions != nil && cfg.PostgreSQLOptions.Database != "" {
+			log.Infow("Initializing database connection", "type", "postgresql", "addr", cfg.PostgreSQLOptions.Addr)
+			return cfg.PostgreSQLOptions.NewDB()
+		}
+		// 其次使用 MySQL
+		if cfg.MySQLOptions != nil && cfg.MySQLOptions.Database != "" {
+			log.Infow("Initializing database connection", "type", "mysql", "addr", cfg.MySQLOptions.Addr)
+			return cfg.MySQLOptions.NewDB()
+		}
+		log.Warnw("No database configured, falling back to memory store")
 	}
 
 	log.Infow("Initializing database connection", "type", "memory", "engine", "SQLite")

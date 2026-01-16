@@ -1,4 +1,4 @@
-# Copyright 2024 孔令飞 <colin404@foxmail.com>. All rights reserved.
+# Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
 # Use of this source code is governed by a MIT style
 # license that can be found in the LICENSE file. The original repo for
 # this file is https://github.com/ashwinyue/eino-show. The professional
@@ -44,7 +44,7 @@ grpc:
   # GRPC 服务器监听地址
   addr: :6666
 
-# MySQL 数据库相关配置
+# MySQL 数据库相关配置（保留用于兼容性，本项目使用 PostgreSQL）
 mysql:
   # MySQL 机器 IP 和端口，默认 127.0.0.1:3306
   addr: 127.0.0.1
@@ -57,6 +57,28 @@ mysql:
   # MySQL 最大空闲连接数，默认 100
   max-idle-connections: 100
   # MySQL 最大打开的连接数，默认 100
+  max-open-connections: 100
+  # 空闲连接最大存活时间，默认 10s
+  max-connection-life-time: 10s
+  # GORM 日志级别, 1: silent, 2:error, 3:warn, 4:info
+  # 生产环境建议设置为 4
+  log-level: 4
+
+# PostgreSQL 数据库相关配置（主数据库）
+postgresql:
+  # PostgreSQL 机器 IP 和端口，默认 127.0.0.1:5432
+  addr: 127.0.0.1:5432
+  # PostgreSQL 用户名(建议授权最小权限集)
+  username: einoshow
+  # PostgreSQL 用户密码
+  password: einoshow1234
+  # eino-show 系统所用的数据库名
+  database: einoshow
+  # PostgreSQL SSL 模式: disable, require, verify-ca, verify-full
+  ssl-mode: disable
+  # PostgreSQL 最大空闲连接数，默认 100
+  max-idle-connections: 100
+  # PostgreSQL 最大打开的连接数，默认 100
   max-open-connections: 100
   # 空闲连接最大存活时间，默认 10s
   max-connection-life-time: 10s
