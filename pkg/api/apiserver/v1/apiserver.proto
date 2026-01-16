@@ -7,7 +7,7 @@
 // MiniBlog API 定义，包含健康检查、用户管理和文章管理的 RPC 接口
 syntax = "proto3"; // 告诉编译器此文件使用什么版本的语法
 
-package v1;
+package apiserver.v1;
 
 // 提供用于定义 HTTP 映射的功能，比如通过 option (google.api.http) 实现 gRPC 到 HTTP 的映射
 import "google/api/annotations.proto";
@@ -24,7 +24,7 @@ import "protoc-gen-openapiv2/options/annotations.proto";
 
 // 指定协议缓冲区文件生成的 Go 代码所在的包路径
 // 包路径为：github.com/ashwinyue/eino-show/pkg/api/apiserver/v1, 别名为：v1
-option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;v1";
+option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;apiserverv1";
 
 // OpenAPI 全局配置，提供详细配置信息，用于生成 OpenAPI 文档
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {

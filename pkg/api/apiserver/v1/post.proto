@@ -7,11 +7,11 @@
 // Post API 定义，包含博客文章的请求和响应消息
 syntax = "proto3"; // 告诉编译器此文件使用什么版本的语法
 
-package v1;
+package apiserver.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1";
+option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;apiserverv1";
 
 // Post 表示博客文章
 message Post {

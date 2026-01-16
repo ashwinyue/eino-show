@@ -1,5 +1,82 @@
 # eino-show 项目规约
 
+## 开发流程
+
+### 首次启动
+
+```bash
+# 1. 创建环境配置
+cp .env.example .env
+
+# 2. 启动基础设施（PostgreSQL + Redis）
+make dev-start
+
+# 3. 等待数据库初始化完成（约30秒）
+# 首次启动会自动从 WeKnora 迁移数据
+
+# 4. 在新终端启动后端应用
+make dev-app
+```
+
+### 日常开发
+
+```bash
+# 启动开发环境
+make dev-start    # 启动 PostgreSQL + Redis
+
+# 启动后端应用（热重载）
+make dev-app      # 使用 Air 实现 go 代码修改后自动重启
+
+# 查看服务状态
+make dev-status
+
+# 查看容器日志
+make dev-logs
+
+# 停止服务
+make dev-stop
+```
+
+### 代码修改后
+
+```bash
+# 每次修改代码后自动运行 build 检查
+# （Air 会自动检测并重新编译）
+
+# 手动编译检查
+go build ./cmd/mb-apiserver/main.go
+```
+
+### Proto 文件修改
+
+```bash
+# 修改 .proto 文件后，重新生成代码
+make gen.protoc
+
+# 验证编译
+go build ./pkg/api/apiserver/...
+```
+
+### 数据库连接信息
+
+| 配置项 | 默认值 |
+|--------|--------|
+| 地址 | 127.0.0.1:5432 |
+| 用户 | einoshow |
+| 密码 | einoshow1234 |
+| 数据库 | einoshow |
+
+### 服务端口
+
+| 服务 | 端口 |
+|------|------|
+| HTTP API | 5555 |
+| gRPC | 6666 |
+| PostgreSQL | 5432 |
+| Redis | 6379 |
+
+---
+
 ## 文件头规范
 
 所有 `.go` 文件必须包含版权声明：
@@ -329,6 +406,127 @@ if err != nil {
     log.L(ctx).Error("failed to create session", zap.Error(err))
     return err
 }
+```
+
+---
+
+## Proto 文件开发规范
+
+### 目录结构
+```
+pkg/api/
+├── apiserver/v1/           # proto 源文件
+│   ├── apiserver.proto
+│   ├── user.proto
+│   ├── post.proto
+│   └── healthz.proto
+└── buf.yaml                # buf 模块配置
+
+third_party/protobuf/       # 第三方 proto 依赖（buf 管理，不提交）
+├── buf.yaml
+├── google/
+├── protoc-gen-openapiv2/
+└── github.com/
+
+buf.gen.yaml               # 代码生成配置（项目根目录）
+buf.work.yaml              # 工作空间配置（项目根目录）
+```
+
+### 修改 Proto 文件流程
+
+1. **编辑 proto 文件**
+   ```bash
+   # 编辑 pkg/api/apiserver/v1/xxx.proto
+   vim pkg/api/apiserver/v1/user.proto
+   ```
+
+2. **生成代码**
+   ```bash
+   # 使用 Makefile
+   make gen.protoc
+
+   # 或直接使用 buf
+   buf generate --exclude-path pkg/api/google --exclude-path pkg/api/protoc-gen-openapiv2 --exclude-path pkg/api/github.com
+   ```
+
+3. **验证编译**
+   ```bash
+   go build ./pkg/api/apiserver/...
+   ```
+
+### Import 路径规范
+
+在 buf 工作空间模式下，import 路径**必须**相对于模块根目录（`pkg/api`）：
+
+```proto
+// ✅ 正确 - 相对于 pkg/api
+import "apiserver/v1/user.proto";
+import "google/api/annotations.proto";
+import "github.com/onexstack/defaults/defaults.proto";
+
+// ❌ 错误 - 旧 protoc 方式
+import "user.proto";
+```
+
+### 添加第三方 Proto 依赖
+
+```bash
+# 1. 从 buf.build 导出依赖到 third_party/protobuf
+buf export buf.build/googleapis/googleapis -o third_party/protobuf
+buf export buf.build/grpc-ecosystem/grpc-gateway -o third_party/protobuf
+
+# 2. 手动下载不在 buf.build 的依赖
+mkdir -p third_party/protobuf/github.com/onexstack/defaults
+curl -s "https://raw.githubusercontent.com/.../defaults.proto" \
+  -o third_party/protobuf/github.com/onexstack/defaults/defaults.proto
+
+# 3. 确保 third_party/protobuf/buf.yaml 存在
+echo 'version: v1' > third_party/protobuf/buf.yaml
+```
+
+### 新增 Proto 文件 Checklist
+
+- [ ] 在 `pkg/api/apiserver/v1/` 创建 `.proto` 文件
+- [ ] import 路径使用 `apiserver/v1/xxx.proto` 格式
+- [ ] 添加 `option go_package` 指定包路径
+- [ ] 运行 `buf generate` 生成代码
+- [ ] 运行 `go build ./pkg/api/apiserver/...` 验证编译
+- [ ] 如需 OpenAPI 文档，检查 `api/openapi/` 生成结果
+
+### Buf 配置文件说明
+
+**buf.work.yaml**（项目根目录）
+```yaml
+version: v1
+directories:
+  - third_party/protobuf  # 第三方依赖
+  - pkg/api               # 项目 proto
+```
+
+**buf.gen.yaml**（项目根目录）
+```yaml
+version: v1
+plugins:
+  - plugin: buf.build/protocolbuffers/go
+    out: pkg/api
+    opt: [paths=source_relative]
+  - plugin: buf.build/grpc/go
+    out: pkg/api
+    opt: [paths=source_relative]
+  - plugin: buf.build/grpc-ecosystem/gateway
+    out: pkg/api
+  - plugin: buf.build/grpc-ecosystem/openapiv2
+    out: api/openapi
+  - name: protoc-gen-defaults
+    out: pkg/api
+```
+
+**pkg/api/buf.yaml**
+```yaml
+version: v1
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
 ```
 
 ---

@@ -2,7 +2,7 @@
 # 工具相关的 Makefile
 #
 
-TOOLS ?= golangci-lint goimports protoc-plugins swagger addlicense protoc-go-inject-tag protolint
+TOOLS ?= golangci-lint goimports buf protoc-plugins swagger addlicense protoc-go-inject-tag protolint
 
 tools.verify: $(addprefix tools.verify., $(TOOLS))
 
@@ -22,6 +22,9 @@ install.golangci-lint:
 
 install.goimports:
 	@$(GO) install golang.org/x/tools/cmd/goimports@latest
+
+install.buf:
+	@go install github.com/bufbuild/buf/cmd/buf@latest
 
 install.protoc-plugins:
 	@$(GO) install google.golang.org/protobuf/cmd/protoc-gen-go@v1.35.2
@@ -44,5 +47,5 @@ install.protolint:
 
 # 伪目标（防止文件与目标名称冲突）
 .PHONY: tools.verify tools.install tools.install.% tools.verify.% install.golangci-lint \
-	install.goimports install.protoc-plugins install.swagger \
+	install.goimports install.buf install.protoc-plugins install.swagger \
 	install.addlicense install.protoc-go-inject-tag protolint

@@ -63,6 +63,19 @@ temp/
 *.gen.go
 !internal/apiserver/model/*.gen.go
 
+# Proto generated files
+*.pb.go
+*.pb.gw.go
+*.pb.defaults.go
+!pkg/api/apiserver/v1/*.pb.go
+
+# Buf
+buf.lock
+pkg/api/buf.lock
+
+# Third-party proto dependencies (managed by buf)
+third_party/
+
 # Frontend (if any)
 node_modules/
 dist/

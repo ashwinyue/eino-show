@@ -17,7 +17,6 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/onexstack/onexstack v0.0.1
 	github.com/onexstack/protoc-gen-defaults v0.0.2
-	github.com/prometheus/common v0.65.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
@@ -25,10 +24,11 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.17.0
+	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9
 	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.10
-	gorm.io/driver/postgres v1.5.11
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gen v0.3.23
 	gorm.io/gorm v1.31.0
@@ -120,6 +120,7 @@ require (
 	github.com/polarismesh/specification v1.5.5-alpha.1 // indirect
 	github.com/prometheus/client_golang v1.23.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/otlptranslator v0.0.2 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
@@ -173,13 +174,13 @@ require (
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/datatypes v1.1.1-0.20230130040222-c43177d3cf8c // indirect
 	gorm.io/driver/mysql v1.5.7 // indirect
+	gorm.io/driver/postgres v1.5.11 // indirect
 	gorm.io/driver/sqlserver v1.5.3 // indirect
 	gorm.io/hints v1.1.0 // indirect
 	gorm.io/plugin/dbresolver v1.6.2 // indirect

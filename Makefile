@@ -1,4 +1,4 @@
-.PHONY: help build run test clean fmt lint deps wire dev-start dev-stop dev-restart dev-logs dev-status dev-app
+.PHONY: help build run test clean fmt lint deps wire gen.protoc dev-start dev-stop dev-restart dev-logs dev-status dev-app
 
 # Show help
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  lint              代码检查"
 	@echo "  deps              安装依赖"
 	@echo "  wire              运行 wire 生成依赖注入代码"
+	@echo "  gen.protoc        生成 proto 代码（buf）"
 	@echo ""
 	@echo "开发模式（推荐）:"
 	@echo "  dev-start         启动开发环境基础设施（PostgreSQL + Redis）"
@@ -63,6 +64,10 @@ deps:
 wire:
 	cd $(MAIN_PATH) && wire
 	cd internal/apiserver && wire
+
+# 生成 proto 代码（使用 buf）
+gen.protoc:
+	buf generate --exclude-path pkg/api/google --exclude-path pkg/api/protoc-gen-openapiv2 --exclude-path pkg/api/github.com
 
 # 开发环境 - 启动基础设施服务
 dev-start:
