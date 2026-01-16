@@ -49,7 +49,7 @@ func AuthnInterceptor(retriever UserRetriever) grpc.UnaryServerInterceptor {
 		ctx = context.WithValue(ctx, known.XUserID, userID)
 
 		// 供 log 和 contextx 使用
-		ctx = contextx.WithUserID(ctx, user.UserID)
+		ctx = contextx.WithUserID(ctx, user.ID)
 		ctx = contextx.WithUsername(ctx, user.Username)
 
 		// 继续处理请求

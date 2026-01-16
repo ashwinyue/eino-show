@@ -19,6 +19,11 @@ import (
 	"github.com/ashwinyue/eino-show/internal/pkg/log"
 )
 
+const (
+	// defaultTenantID 是默认租户 ID，当用户未分配租户时使用.
+	defaultTenantID uint64 = 1
+)
+
 // UserRetriever 用于根据用户名获取用户的接口.
 type UserRetriever interface {
 	// GetUser 根据用户ID获取用户信息
@@ -45,8 +50,15 @@ func AuthnMiddleware(retriever UserRetriever) gin.HandlerFunc {
 			return
 		}
 
-		ctx := contextx.WithUserID(c.Request.Context(), user.UserID)
+		// 获取租户 ID，如果用户未分配租户则使用默认租户
+		tenantID := defaultTenantID
+		if user.TenantID != nil {
+			tenantID = uint64(*user.TenantID)
+		}
+
+		ctx := contextx.WithUserID(c.Request.Context(), user.ID)
 		ctx = contextx.WithUsername(ctx, user.Username)
+		ctx = contextx.WithTenantID(ctx, tenantID)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()

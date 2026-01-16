@@ -4,5 +4,4 @@
 
 version: v1
 directories:
-  - third_party/protobuf
   - pkg/api

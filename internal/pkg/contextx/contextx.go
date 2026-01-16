@@ -16,6 +16,8 @@ type (
 	usernameKey struct{}
 	// userIDKey 定义用户 ID 的上下文键.
 	userIDKey struct{}
+	// tenantIDKey 定义租户 ID 的上下文键.
+	tenantIDKey struct{}
 	// accessTokenKey 定义访问令牌的上下文键.
 	accessTokenKey struct{}
 	// requestIDKey 定义请求 ID 的上下文键.
@@ -42,6 +44,17 @@ func WithUsername(ctx context.Context, username string) context.Context {
 func Username(ctx context.Context) string {
 	username, _ := ctx.Value(usernameKey{}).(string)
 	return username
+}
+
+// WithTenantID 将租户 ID 存放到上下文中.
+func WithTenantID(ctx context.Context, tenantID uint64) context.Context {
+	return context.WithValue(ctx, tenantIDKey{}, tenantID)
+}
+
+// TenantID 从上下文中提取租户 ID.
+func TenantID(ctx context.Context) uint64 {
+	tenantID, _ := ctx.Value(tenantIDKey{}).(uint64)
+	return tenantID
 }
 
 // WithAccessToken 将访问令牌存放到上下文中.

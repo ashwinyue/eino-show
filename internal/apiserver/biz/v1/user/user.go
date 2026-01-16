@@ -16,13 +16,13 @@ import (
 	"github.com/onexstack/onexstack/pkg/authn"
 	"github.com/onexstack/onexstack/pkg/authz"
 	"github.com/onexstack/onexstack/pkg/store/where"
-	"github.com/onexstack/onexstack/pkg/token"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/model"
 	"github.com/ashwinyue/eino-show/internal/apiserver/pkg/conversion"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
+	tokensvc "github.com/ashwinyue/eino-show/internal/pkg/token"
 	"github.com/ashwinyue/eino-show/internal/pkg/contextx"
 	"github.com/ashwinyue/eino-show/internal/pkg/errno"
 	"github.com/ashwinyue/eino-show/internal/pkg/known"
@@ -51,18 +51,28 @@ type UserExpansion interface {
 
 // userBiz 是 UserBiz 接口的实现.
 type userBiz struct {
-	store store.IStore
-	authz *authz.Authz
+	store    store.IStore
+	authz    *authz.Authz
+	tokenSvc *tokensvc.Service
 }
 
 // 确保 userBiz 实现了 UserBiz 接口.
 var _ UserBiz = (*userBiz)(nil)
 
+// defaultJWTSecret 默认 JWT 密钥（生产环境应从配置读取）
+// 注意：需要与命令行 --jwt-key 的默认值保持一致
+const defaultJWTSecret = "Rtg8BPKNEf2mB4mgvKONGPZZQSaJWNLijxR42qRgq0iBb5"
+
 func New(store store.IStore, authz *authz.Authz) *userBiz {
-	return &userBiz{store: store, authz: authz}
+	return &userBiz{
+		store:    store,
+		authz:    authz,
+		tokenSvc: tokensvc.New(store, defaultJWTSecret),
+	}
 }
 
 // Login 实现 UserBiz 接口中的 Login 方法.
+// 按 WeKora 模式：返回 access_token + refresh_token + user 信息.
 func (b *userBiz) Login(ctx context.Context, rq *apiv1.LoginRequest) (*apiv1.LoginResponse, error) {
 	// 获取登录用户的所有信息
 	whr := where.F("username", rq.GetUsername())
@@ -72,31 +82,43 @@ func (b *userBiz) Login(ctx context.Context, rq *apiv1.LoginRequest) (*apiv1.Log
 	}
 
 	// 对比传入的明文密码和数据库中已加密过的密码是否匹配
-	if err := authn.Compare(userM.Password, rq.GetPassword()); err != nil {
+	if err := authn.Compare(userM.PasswordHash, rq.GetPassword()); err != nil {
 		log.W(ctx).Errorw("Failed to compare password", "err", err)
 		return nil, errno.ErrPasswordInvalid
 	}
 
-	// 如果匹配成功，说明登录成功，签发 token 并返回
-	tokenStr, expireAt, err := token.Sign(userM.UserID)
+	// 生成访问令牌和刷新令牌
+	accessToken, refreshToken, accessExpireAt, _, err := b.tokenSvc.GenerateTokens(ctx, userM.ID)
 	if err != nil {
-		log.W(ctx).Errorw("Failed to sign token", "err", err)
-		return nil, errno.ErrSignToken
+		log.W(ctx).Errorw("Failed to generate tokens", "err", err)
+		return nil, errno.ErrSignToken.WithMessage(err.Error())
 	}
 
-	return &apiv1.LoginResponse{Token: tokenStr, ExpireAt: timestamppb.New(expireAt)}, nil
+	// 构建用户信息响应
+	userProto := conversion.UserModelToUserV1(userM)
+
+	return &apiv1.LoginResponse{
+		Token:        accessToken,
+		RefreshToken: refreshToken,
+		ExpireAt:     timestamppb.New(accessExpireAt),
+		User:         userProto,
+	}, nil
 }
 
-// RefreshToken 用于刷新用户的身份验证令牌.
-// 当用户的令牌即将过期时，可以调用此方法生成一个新的令牌.
+// RefreshToken 使用刷新令牌获取新的访问令牌.
 func (b *userBiz) RefreshToken(ctx context.Context, rq *apiv1.RefreshTokenRequest) (*apiv1.RefreshTokenResponse, error) {
-	tokenStr, expireAt, err := token.Sign(contextx.UserID(ctx))
+	// 使用刷新令牌生成新的 token 对
+	newAccessToken, newRefreshToken, accessExpireAt, _, err := b.tokenSvc.RefreshToken(ctx, rq.GetRefreshToken())
 	if err != nil {
-		log.W(ctx).Errorw("Failed to sign token", "err", err)
-		return nil, errno.ErrSignToken
+		log.W(ctx).Errorw("Failed to refresh token", "err", err)
+		return nil, errno.ErrTokenInvalid.WithMessage(err.Error())
 	}
 
-	return &apiv1.RefreshTokenResponse{Token: tokenStr, ExpireAt: timestamppb.New(expireAt)}, nil
+	return &apiv1.RefreshTokenResponse{
+		Token:        newAccessToken,
+		RefreshToken: newRefreshToken,
+		ExpireAt:     timestamppb.New(accessExpireAt),
+	}, nil
 }
 
 // ChangePassword 实现 UserBiz 接口中的 ChangePassword 方法.
@@ -106,14 +128,19 @@ func (b *userBiz) ChangePassword(ctx context.Context, rq *apiv1.ChangePasswordRe
 		return nil, err
 	}
 
-	if err := authn.Compare(userM.Password, rq.GetOldPassword()); err != nil {
+	if err := authn.Compare(userM.PasswordHash, rq.GetOldPassword()); err != nil {
 		log.W(ctx).Errorw("Failed to compare password", "err", err)
 		return nil, errno.ErrPasswordInvalid
 	}
 
-	userM.Password, _ = authn.Encrypt(rq.GetNewPassword())
+	userM.PasswordHash, _ = authn.Encrypt(rq.GetNewPassword())
 	if err := b.store.User().Update(ctx, userM); err != nil {
 		return nil, err
+	}
+
+	// 撤销用户的所有 token，强制重新登录
+	if err := b.tokenSvc.RevokeAllUserTokens(ctx, userM.ID); err != nil {
+		log.W(ctx).Errorw("Failed to revoke user tokens", "err", err)
 	}
 
 	return &apiv1.ChangePasswordResponse{}, nil
@@ -124,16 +151,25 @@ func (b *userBiz) Create(ctx context.Context, rq *apiv1.CreateUserRequest) (*api
 	var userM model.UserM
 	_ = copier.Copy(&userM, rq)
 
+	// 加密密码
+	if rq.Password != "" {
+		hashedPassword, err := authn.Encrypt(rq.Password)
+		if err != nil {
+			return nil, errno.ErrPasswordInvalid
+		}
+		userM.PasswordHash = hashedPassword
+	}
+
 	if err := b.store.User().Create(ctx, &userM); err != nil {
 		return nil, err
 	}
 
-	if _, err := b.authz.AddGroupingPolicy(userM.UserID, known.RoleUser); err != nil {
-		log.W(ctx).Errorw("Failed to add grouping policy for user", "user", userM.UserID, "role", known.RoleUser)
+	if _, err := b.authz.AddGroupingPolicy(userM.ID, known.RoleUser); err != nil {
+		log.W(ctx).Errorw("Failed to add grouping policy for user", "user", userM.ID, "role", known.RoleUser)
 		return nil, errno.ErrAddRole.WithMessage(err.Error())
 	}
 
-	return &apiv1.CreateUserResponse{UserID: userM.UserID}, nil
+	return &apiv1.CreateUserResponse{UserID: userM.ID}, nil
 }
 
 // Update 实现 UserBiz 接口中的 Update 方法.
@@ -149,12 +185,8 @@ func (b *userBiz) Update(ctx context.Context, rq *apiv1.UpdateUserRequest) (*api
 	if rq.Email != nil {
 		userM.Email = rq.GetEmail()
 	}
-	if rq.Nickname != nil {
-		userM.Nickname = rq.GetNickname()
-	}
-	if rq.Phone != nil {
-		userM.Phone = rq.GetPhone()
-	}
+	// Note: Nickname 和 Phone 字段在当前 UserM 模型中不存在
+	// 如需添加这些字段，需先更新数据库模型和表结构
 
 	if err := b.store.User().Update(ctx, userM); err != nil {
 		return nil, err
@@ -167,13 +199,18 @@ func (b *userBiz) Update(ctx context.Context, rq *apiv1.UpdateUserRequest) (*api
 func (b *userBiz) Delete(ctx context.Context, rq *apiv1.DeleteUserRequest) (*apiv1.DeleteUserResponse, error) {
 	// 只有 `root` 用户可以删除用户，并且可以删除其他用户
 	// 所以这里不用 where.T()，因为 where.T() 会查询 `root` 用户自己
-	if err := b.store.User().Delete(ctx, where.F("userID", rq.GetUserID())); err != nil {
+	if err := b.store.User().Delete(ctx, where.F("id", rq.GetUserID())); err != nil {
 		return nil, err
 	}
 
 	if _, err := b.authz.RemoveGroupingPolicy(rq.GetUserID(), known.RoleUser); err != nil {
 		log.W(ctx).Errorw("Failed to remove grouping policy for user", "user", rq.GetUserID(), "role", known.RoleUser)
 		return nil, errno.ErrRemoveRole.WithMessage(err.Error())
+	}
+
+	// 撤销用户的所有 token
+	if err := b.tokenSvc.RevokeAllUserTokens(ctx, rq.GetUserID()); err != nil {
+		log.W(ctx).Errorw("Failed to revoke user tokens", "err", err)
 	}
 
 	return &apiv1.DeleteUserResponse{}, nil
@@ -214,11 +251,8 @@ func (b *userBiz) List(ctx context.Context, rq *apiv1.ListUserRequest) (*apiv1.L
 			case <-ctx.Done():
 				return nil
 			default:
-				count, _, err := b.store.Post().List(ctx, where.T(ctx))
-				if err != nil {
-					return err
-				}
-
+				// TODO: 统计用户相关的数据
+				count := int64(0)
 				converted := conversion.UserModelToUserV1(user)
 				converted.PostCount = count
 				m.Store(user.ID, converted)
@@ -258,13 +292,8 @@ func (b *userBiz) ListWithBadPerformance(ctx context.Context, rq *apiv1.ListUser
 
 	users := make([]*apiv1.User, 0, len(userList))
 	for _, user := range userList {
-		count, _, err := b.store.Post().List(ctx, where.T(ctx))
-		if err != nil {
-			return nil, err
-		}
-
+		// TODO: 统计用户相关的数据
 		converted := conversion.UserModelToUserV1(user)
-		converted.PostCount = count
 		users = append(users, converted)
 	}
 

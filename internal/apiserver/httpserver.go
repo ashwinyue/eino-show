@@ -56,8 +56,8 @@ func (c *ServerConfig) InstallRESTAPI(engine *gin.Engine) {
 
 	// 注册用户登录和令牌刷新接口。这2个接口比较简单，所以没有 API 版本
 	engine.POST("/login", handler.Login)
-	// 注意：认证中间件要在 handler.RefreshToken 之前加载
-	engine.PUT("/refresh-token", mw.AuthnMiddleware(c.retriever), handler.RefreshToken)
+	// 刷新令牌不需要认证中间件，因为它从请求体中读取 refreshToken 进行验证
+	engine.PUT("/refresh-token", handler.RefreshToken)
 
 	// 认证和授权中间件
 	authMiddlewares := []gin.HandlerFunc{mw.AuthnMiddleware(c.retriever), mw.AuthzMiddleware(c.authz)}
@@ -78,14 +78,51 @@ func (c *ServerConfig) InstallRESTAPI(engine *gin.Engine) {
 			userv1.GET("", handler.ListUser)                              // 查询用户列表
 		}
 
-		// 博客相关路由
-		postv1 := v1.Group("/posts", authMiddlewares...) // 所有博客相关接口都需要认证和授权
+		// Agent 相关路由
+		agentv1 := v1.Group("/custom-agents", authMiddlewares...)
 		{
-			postv1.POST("", handler.CreatePost)       // 创建博客
-			postv1.PUT(":postID", handler.UpdatePost) // 更新博客
-			postv1.DELETE("", handler.DeletePost)     // 删除博客
-			postv1.GET(":postID", handler.GetPost)    // 查询博客详情
-			postv1.GET("", handler.ListPost)          // 查询博客列表
+			agentv1.GET("", handler.ListAgents)
+			agentv1.GET("/:id", handler.GetAgent)
+			agentv1.POST("", handler.CreateAgent)
+			agentv1.PUT("/:id", handler.UpdateAgent)
+			agentv1.DELETE("/:id", handler.DeleteAgent)
+		}
+
+		// 内置 Agent 路由
+		builtinv1 := v1.Group("/agents/builtin", authMiddlewares...)
+		{
+			builtinv1.GET("", handler.ListBuiltinAgents)
+		}
+
+		// Session 相关路由
+		sessionv1 := v1.Group("/sessions", authMiddlewares...)
+		{
+			sessionv1.GET("", handler.ListSessions)
+			sessionv1.GET("/:id", handler.GetSession)
+			sessionv1.POST("", handler.CreateSession)
+			sessionv1.PUT("/:id", handler.UpdateSession)
+			sessionv1.DELETE("/:id", handler.DeleteSession)
+		}
+
+		// Knowledge Base 相关路由
+		kbv1 := v1.Group("/knowledge-bases", authMiddlewares...)
+		{
+			kbv1.GET("", handler.ListKnowledgeBases)
+			kbv1.POST("", handler.CreateKnowledgeBase)
+
+			// 更具体的路由（带 /knowledge 后缀）必须放在通用的 /:id 之前
+			kbv1.GET("/:id/knowledge", handler.ListKnowledges)
+
+			kbv1.GET("/:id", handler.GetKnowledgeBase)
+			kbv1.GET("/:id/stats", handler.GetKnowledgeStats)
+			kbv1.PUT("/:id", handler.UpdateKnowledgeBase)
+			kbv1.DELETE("/:id", handler.DeleteKnowledgeBase)
+		}
+
+		// Knowledge 路由（独立于 Knowledge Base）
+		knowledgev1 := v1.Group("/knowledge", authMiddlewares...)
+		{
+			knowledgev1.DELETE("/:id", handler.DeleteKnowledge)
 		}
 	}
 }

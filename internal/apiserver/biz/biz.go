@@ -12,11 +12,11 @@ import (
 	"github.com/google/wire"
 	"github.com/onexstack/onexstack/pkg/authz"
 
-	postv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/post"
+	agentv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/agent"
+	knowledgev1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/knowledge"
+	sessionv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/session"
 	userv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/user"
 
-	// Post V2 版本（未实现，仅展示用）
-	// postv2 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v2/post".
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
 )
 
@@ -30,10 +30,13 @@ var ProviderSet = wire.NewSet(NewBiz, wire.Bind(new(IBiz), new(*biz)))
 type IBiz interface {
 	// UserV1 获取用户业务接口.
 	UserV1() userv1.UserBiz
-	// PostV1 获取帖子业务接口.
-	PostV1() postv1.PostBiz
-	// PostV2 获取帖子业务接口（V2 版本）.
-	// PostV2() post.PostBiz
+
+	// SessionV1 获取会话业务接口.
+	SessionV1() sessionv1.SessionBiz
+	// AgentV1 获取 Agent 业务接口.
+	AgentV1() agentv1.AgentBiz
+	// KnowledgeV1 获取知识库业务接口.
+	KnowledgeV1() knowledgev1.KnowledgeBiz
 }
 
 // biz 是 IBiz 的一个具体实现.
@@ -55,7 +58,17 @@ func (b *biz) UserV1() userv1.UserBiz {
 	return userv1.New(b.store, b.authz)
 }
 
-// PostV1 返回一个实现了 PostBiz 接口的实例.
-func (b *biz) PostV1() postv1.PostBiz {
-	return postv1.New(b.store)
+// SessionV1 返回一个实现了 SessionBiz 接口的实例.
+func (b *biz) SessionV1() sessionv1.SessionBiz {
+	return sessionv1.New(b.store)
+}
+
+// AgentV1 返回一个实现了 AgentBiz 接口的实例.
+func (b *biz) AgentV1() agentv1.AgentBiz {
+	return agentv1.New(b.store)
+}
+
+// KnowledgeV1 返回一个实现了 KnowledgeBiz 接口的实例.
+func (b *biz) KnowledgeV1() knowledgev1.KnowledgeBiz {
+	return knowledgev1.New(b.store)
 }

@@ -19,9 +19,9 @@ import (
 )
 
 // 帮助信息文本.
-const helpText = `Usage: main [flags] arg [arg...]
+const helpText = `Usage: gen_gorm_model [flags]
 
-This is a pflag example.
+Generate GORM model code from database schema.
 
 Flags:
 `
@@ -40,16 +40,18 @@ type GenerateConfig struct {
 
 // 预定义的生成配置.
 var generateConfigs = map[string]GenerateConfig{
-	"mb": {ModelPackagePath: "../../internal/apiserver/model", GenerateFunc: GenerateMiniBlogModels},
+	"mb": {ModelPackagePath: "github.com/ashwinyue/eino-show/internal/apiserver/model", GenerateFunc: GenerateMiniBlogModels},
 }
 
 // 命令行参数.
 var (
-	addr       = pflag.StringP("addr", "a", "127.0.0.1:3306", "MySQL host address.")
-	username   = pflag.StringP("username", "u", "miniblog", "Username to connect to the database.")
-	password   = pflag.StringP("password", "p", "miniblog1234", "Password to use when connecting to the database.")
-	database   = pflag.StringP("db", "d", "miniblog", "Database name to connect to.")
-	modelPath  = pflag.String("model-pkg-path", "", "Generated model code's package name.")
+	dbType     = pflag.String("db-type", "postgresql", "Database type: mysql or postgresql")
+	addr       = pflag.StringP("addr", "a", "127.0.0.1:5432", "Database host:port address.")
+	username   = pflag.StringP("username", "u", "einoshow", "Database username.")
+	password   = pflag.StringP("password", "p", "einoshow1234", "Database password.")
+	database   = pflag.StringP("db", "d", "einoshow", "Database name.")
+	sslMode    = pflag.String("ssl-mode", "disable", "PostgreSQL SSL mode (disable, require, verify-ca, verify-full).")
+	modelPath  = pflag.String("model-pkg-path", "", "Generated model code's package path.")
 	components = pflag.StringSlice("component", []string{"mb"}, "Generated model code's for specified component.")
 	help       = pflag.BoolP("help", "h", false, "Show this help message.")
 )
@@ -82,15 +84,37 @@ func main() {
 
 // initializeDatabase 创建并返回一个数据库连接.
 func initializeDatabase() (*gorm.DB, error) {
+	switch *dbType {
+	case "mysql":
+		return connectMySQL()
+	case "postgresql", "postgres":
+		return connectPostgreSQL()
+	default:
+		return nil, fmt.Errorf("unsupported database type: %s (supported: mysql, postgresql)", *dbType)
+	}
+}
+
+// connectMySQL 连接 MySQL 数据库.
+func connectMySQL() (*gorm.DB, error) {
 	dbOptions := &db.MySQLOptions{
 		Addr:     *addr,
 		Username: *username,
 		Password: *password,
 		Database: *database,
 	}
-
-	// 创建并返回数据库连接
 	return db.NewMySQL(dbOptions)
+}
+
+// connectPostgreSQL 连接 PostgreSQL 数据库.
+func connectPostgreSQL() (*gorm.DB, error) {
+	dbOptions := &db.PostgreSQLOptions{
+		Addr:     *addr,
+		Username: *username,
+		Password: *password,
+		Database: *database,
+		SSLMode:  *sslMode,
+	}
+	return db.NewPostgreSQL(dbOptions)
 }
 
 // processComponent 处理单个组件以生成代码.
@@ -123,12 +147,12 @@ func resolveModelPackagePath(defaultPath string) string {
 	if *modelPath != "" {
 		return *modelPath
 	}
-	absPath, err := filepath.Abs(defaultPath)
-	if err != nil {
-		log.Printf("Error resolving path: %v", err)
+	// 如果是 Go 模块路径，转换为绝对路径
+	if filepath.IsAbs(defaultPath) {
 		return defaultPath
 	}
-	return absPath
+	// 处理 Go 模块路径格式 (github.com/...)
+	return defaultPath
 }
 
 // createGenerator 初始化并返回一个新的生成器实例.
@@ -161,36 +185,99 @@ func applyGeneratorOptions(g *gen.Generator) {
 
 // GenerateMiniBlogModels 为 miniblog 组件生成模型.
 func GenerateMiniBlogModels(g *gen.Generator) {
-	g.GenerateModelAs(
-		"user",
-		"UserM",
-		gen.FieldIgnore("placeholder"),
-		gen.FieldGORMTag("username", func(tag field.GormTag) field.GormTag {
-			tag.Set("uniqueIndex", "idx_user_username")
-			return tag
-		}),
-		gen.FieldGORMTag("userID", func(tag field.GormTag) field.GormTag {
-			tag.Set("uniqueIndex", "idx_user_userID")
-			return tag
-		}),
-		gen.FieldGORMTag("phone", func(tag field.GormTag) field.GormTag {
-			tag.Set("uniqueIndex", "idx_user_phone")
-			return tag
-		}),
-	)
-	g.GenerateModelAs(
-		"post",
-		"PostM",
-		gen.FieldIgnore("placeholder"),
-		gen.FieldGORMTag("postID", func(tag field.GormTag) field.GormTag {
-			tag.Set("uniqueIndex", "idx_post_postID")
-			return tag
-		}),
-	)
+	// Casbin 规则模型
 	g.GenerateModelAs(
 		"casbin_rule",
 		"CasbinRuleM",
 		gen.FieldRename("ptype", "PType"),
 		gen.FieldIgnore("placeholder"),
+	)
+
+	// ========== 用户系统 ==========
+
+	// 用户模型（表名: users）
+	g.GenerateModelAs(
+		"users",
+		"UserM",
+	)
+
+	// ========== Agent 系统 ==========
+
+	// 自定义 Agent 模型
+	g.GenerateModelAs(
+		"custom_agents",
+		"CustomAgentM",
+	)
+
+	// MCP 服务模型
+	g.GenerateModelAs(
+		"mcp_services",
+		"MCPServiceM",
+	)
+
+	// ========== Session 系统 ==========
+
+	// 会话模型
+	g.GenerateModelAs(
+		"sessions",
+		"SessionM",
+	)
+
+	// 会话项模型
+	g.GenerateModelAs(
+		"session_items",
+		"SessionItemM",
+	)
+
+	// 消息模型
+	g.GenerateModelAs(
+		"messages",
+		"MessageM",
+	)
+
+	// 认证令牌模型
+	g.GenerateModelAs(
+		"auth_tokens",
+		"AuthTokenM",
+	)
+
+	// ========== 知识库系统 ==========
+
+	// 知识库模型
+	g.GenerateModelAs(
+		"knowledge_bases",
+		"KnowledgeBaseM",
+	)
+
+	// 知识项模型（文档）
+	g.GenerateModelAs(
+		"knowledges",
+		"KnowledgeM",
+	)
+
+	// 知识分块模型（向量存储）
+	g.GenerateModelAs(
+		"chunks",
+		"ChunkM",
+	)
+
+	// 知识标签模型
+	g.GenerateModelAs(
+		"knowledge_tags",
+		"KnowledgeTagM",
+	)
+
+	// ========== 租户系统 ==========
+
+	// 租户模型
+	g.GenerateModelAs(
+		"tenants",
+		"TenantM",
+	)
+
+	// 模型配置
+	g.GenerateModelAs(
+		"models",
+		"LLMModelM",
 	)
 }

@@ -4,7 +4,7 @@
 // this file is https://github.com/ashwinyue/eino-show. The professional
 // version of this repository is https://github.com/onexstack/onex.
 
-// MiniBlog API 定义，包含健康检查、用户管理和文章管理的 RPC 接口
+// eino-show API 定义，包含健康检查、用户管理、文章管理、Agent管理、会话管理和知识库管理的 RPC 接口
 syntax = "proto3"; // 告诉编译器此文件使用什么版本的语法
 
 package apiserver.v1;
@@ -19,6 +19,12 @@ import "apiserver/v1/healthz.proto";
 import "apiserver/v1/post.proto";
 // 定义当前服务所依赖的用户消息
 import "apiserver/v1/user.proto";
+// 定义当前服务所依赖的 Agent 消息
+import "apiserver/v1/agent.proto";
+// 定义当前服务所依赖的会话消息
+import "apiserver/v1/session.proto";
+// 定义当前服务所依赖的知识库消息
+import "apiserver/v1/knowledge.proto";
 // 为生成 OpenAPI 文档提供相关注释（如标题、版本、作者、许可证等信息）
 import "protoc-gen-openapiv2/options/annotations.proto";
 
@@ -30,14 +36,14 @@ option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;apiserv
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     info: {
         // API名称
-        title: "miniblog API";
+        title: "eino-show API";
         // API版本
         version: "1.0";
         // API 描述
         description: "";
         // 开发者的联系方式，包括项目名称、网址和电子邮件
         contact: {
-            name: "小而美的博客项目";
+            name: "eino-show 项目";
             url: "https://github.com/ashwinyue/eino-show";
             email: "stary99c@163.com";
         };
@@ -258,6 +264,265 @@ service MiniBlog {
             summary: "列出所有文章";
             operation_id: "ListPost";
             tags: "博客管理";
+        };
+    }
+
+    // ========== Agent 管理 ==========
+
+    // ListAgents 获取 Agent 列表
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
+        option (google.api.http) = {
+            get: "/v1/custom-agents",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取 Agent 列表";
+            operation_id: "ListAgents";
+            tags: "Agent 管理";
+        };
+    }
+
+    // GetAgent 获取 Agent 详情
+    rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
+        option (google.api.http) = {
+            get: "/v1/custom-agents/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取 Agent 详情";
+            operation_id: "GetAgent";
+            tags: "Agent 管理";
+        };
+    }
+
+    // CreateAgent 创建 Agent
+    rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
+        option (google.api.http) = {
+            post: "/v1/custom-agents",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "创建 Agent";
+            operation_id: "CreateAgent";
+            tags: "Agent 管理";
+        };
+    }
+
+    // UpdateAgent 更新 Agent
+    rpc UpdateAgent(UpdateAgentRequest) returns (UpdateAgentResponse) {
+        option (google.api.http) = {
+            put: "/v1/custom-agents/{id}",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "更新 Agent";
+            operation_id: "UpdateAgent";
+            tags: "Agent 管理";
+        };
+    }
+
+    // DeleteAgent 删除 Agent
+    rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse) {
+        option (google.api.http) = {
+            delete: "/v1/custom-agents/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "删除 Agent";
+            operation_id: "DeleteAgent";
+            tags: "Agent 管理";
+        };
+    }
+
+    // ListBuiltinAgents 获取内置 Agent 列表
+    rpc ListBuiltinAgents(ListBuiltinAgentsRequest) returns (ListBuiltinAgentsResponse) {
+        option (google.api.http) = {
+            get: "/v1/agents/builtin",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取内置 Agent 列表";
+            operation_id: "ListBuiltinAgents";
+            tags: "Agent 管理";
+        };
+    }
+
+    // ========== 会话管理 ==========
+
+    // CreateSession 创建会话
+    rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {
+        option (google.api.http) = {
+            post: "/v1/sessions",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "创建会话";
+            operation_id: "CreateSession";
+            tags: "会话管理";
+        };
+    }
+
+    // GetSession 获取会话详情
+    rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+        option (google.api.http) = {
+            get: "/v1/sessions/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取会话详情";
+            operation_id: "GetSession";
+            tags: "会话管理";
+        };
+    }
+
+    // ListSessions 获取会话列表
+    rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+        option (google.api.http) = {
+            get: "/v1/sessions",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取会话列表";
+            operation_id: "ListSessions";
+            tags: "会话管理";
+        };
+    }
+
+    // UpdateSession 更新会话
+    rpc UpdateSession(UpdateSessionRequest) returns (UpdateSessionResponse) {
+        option (google.api.http) = {
+            put: "/v1/sessions/{id}",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "更新会话";
+            operation_id: "UpdateSession";
+            tags: "会话管理";
+        };
+    }
+
+    // DeleteSession 删除会话
+    rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse) {
+        option (google.api.http) = {
+            delete: "/v1/sessions/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "删除会话";
+            operation_id: "DeleteSession";
+            tags: "会话管理";
+        };
+    }
+
+    // ========== 知识库管理 ==========
+
+    // CreateKnowledgeBase 创建知识库
+    rpc CreateKnowledgeBase(CreateKnowledgeBaseRequest) returns (CreateKnowledgeBaseResponse) {
+        option (google.api.http) = {
+            post: "/v1/knowledge-bases",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "创建知识库";
+            operation_id: "CreateKnowledgeBase";
+            tags: "知识库管理";
+        };
+    }
+
+    // GetKnowledgeBase 获取知识库详情
+    rpc GetKnowledgeBase(GetKnowledgeBaseRequest) returns (GetKnowledgeBaseResponse) {
+        option (google.api.http) = {
+            get: "/v1/knowledge-bases/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取知识库详情";
+            operation_id: "GetKnowledgeBase";
+            tags: "知识库管理";
+        };
+    }
+
+    // ListKnowledgeBases 获取知识库列表
+    rpc ListKnowledgeBases(ListKnowledgeBasesRequest) returns (ListKnowledgeBasesResponse) {
+        option (google.api.http) = {
+            get: "/v1/knowledge-bases",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取知识库列表";
+            operation_id: "ListKnowledgeBases";
+            tags: "知识库管理";
+        };
+    }
+
+    // UpdateKnowledgeBase 更新知识库
+    rpc UpdateKnowledgeBase(UpdateKnowledgeBaseRequest) returns (UpdateKnowledgeBaseResponse) {
+        option (google.api.http) = {
+            put: "/v1/knowledge-bases/{id}",
+            body: "*",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "更新知识库";
+            operation_id: "UpdateKnowledgeBase";
+            tags: "知识库管理";
+        };
+    }
+
+    // DeleteKnowledgeBase 删除知识库
+    rpc DeleteKnowledgeBase(DeleteKnowledgeBaseRequest) returns (DeleteKnowledgeBaseResponse) {
+        option (google.api.http) = {
+            delete: "/v1/knowledge-bases/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "删除知识库";
+            operation_id: "DeleteKnowledgeBase";
+            tags: "知识库管理";
+        };
+    }
+
+    // GetKnowledgeStats 获取知识库统计
+    rpc GetKnowledgeStats(GetKnowledgeStatsRequest) returns (KnowledgeStatsResponse) {
+        option (google.api.http) = {
+            get: "/v1/knowledge-bases/{id}/stats",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取知识库统计";
+            operation_id: "GetKnowledgeStats";
+            tags: "知识库管理";
+        };
+    }
+
+    // ListKnowledges 获取知识列表
+    rpc ListKnowledges(ListKnowledgesRequest) returns (ListKnowledgesResponse) {
+        option (google.api.http) = {
+            get: "/v1/knowledge-bases/{kb_id}/knowledge",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "获取知识列表";
+            operation_id: "ListKnowledges";
+            tags: "知识库管理";
+        };
+    }
+
+    // DeleteKnowledge 删除知识
+    rpc DeleteKnowledge(DeleteKnowledgeRequest) returns (DeleteKnowledgeResponse) {
+        option (google.api.http) = {
+            delete: "/v1/knowledge/{id}",
+        };
+
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "删除知识";
+            operation_id: "DeleteKnowledge";
+            tags: "知识库管理";
         };
     }
 }

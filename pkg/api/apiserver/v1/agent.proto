@@ -1,0 +1,124 @@
+// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file. The original repo for
+// this file is https://github.com/ashwinyue/eino-show. The professional
+// version of this repository is https://github.com/onexstack/onex.
+
+// Agent API 定义，包含 Agent 管理的 RPC 接口
+syntax = "proto3";
+
+package apiserver.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;apiserverv1";
+
+// Agent 自定义 Agent
+message Agent {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    string avatar = 4;
+    bool is_builtin = 5;
+    CustomAgentConfig config = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+}
+
+// CustomAgentConfig Agent 配置
+message CustomAgentConfig {
+    string instruction = 1;
+    double temperature = 2;
+    int32 max_iterations = 3;
+    repeated string tools = 4;
+    repeated string knowledge_bases = 5;
+    string model_id = 6;
+    bool enable_web_search = 7;
+}
+
+// BuiltinAgent 内置 Agent
+message BuiltinAgent {
+    string id = 1;
+    string type = 2;
+    string name = 3;
+    string description = 4;
+}
+
+// ListAgentsRequest 获取 Agent 列表请求
+message ListAgentsRequest {
+    // 未来可添加分页参数
+}
+
+// ListAgentsResponse 获取 Agent 列表响应
+message ListAgentsResponse {
+    repeated Agent agents = 1;
+    int64 total = 2;
+}
+
+// GetAgentRequest 获取 Agent 请求
+message GetAgentRequest {
+    string id = 1;
+}
+
+// GetAgentResponse 获取 Agent 响应
+message GetAgentResponse {
+    Agent agent = 1;
+}
+
+// CreateAgentRequest 创建 Agent 请求
+message CreateAgentRequest {
+    string name = 1;
+    string description = 2;
+    string avatar = 3;
+    CustomAgentConfig config = 4;
+}
+
+// CreateAgentResponse 创建 Agent 响应
+message CreateAgentResponse {
+    string id = 1;
+    string name = 2;
+    google.protobuf.Timestamp created_at = 3;
+}
+
+// UpdateAgentRequest 更新 Agent 请求
+message UpdateAgentRequest {
+    string id = 1;
+    optional string name = 2;
+    optional string description = 3;
+    optional string avatar = 4;
+    optional CustomAgentConfig config = 5;
+}
+
+// UpdateAgentResponse 更新 Agent 响应
+message UpdateAgentResponse {
+    string id = 1;
+    string name = 2;
+    google.protobuf.Timestamp updated_at = 3;
+}
+
+// DeleteAgentRequest 删除 Agent 请求
+message DeleteAgentRequest {
+    string id = 1;
+}
+
+// DeleteAgentResponse 删除 Agent 响应
+message DeleteAgentResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// ListBuiltinAgentsRequest 获取内置 Agent 列表请求
+message ListBuiltinAgentsRequest {}
+
+// ListBuiltinAgentsResponse 获取内置 Agent 列表响应
+message ListBuiltinAgentsResponse {
+    repeated BuiltinAgent agents = 1;
+}
+
+// ExecuteRequest 执行 Agent 请求
+message ExecuteRequest {
+    string session_id = 1;
+    string question = 2;
+}

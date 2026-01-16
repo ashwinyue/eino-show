@@ -8,6 +8,7 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,10 +16,8 @@ import (
 
 	"github.com/onexstack/onexstack/pkg/authz"
 	genericoptions "github.com/onexstack/onexstack/pkg/options"
-	"github.com/onexstack/onexstack/pkg/ptr"
 	"github.com/onexstack/onexstack/pkg/store/where"
 	"github.com/onexstack/onexstack/pkg/token"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/biz"
@@ -50,7 +49,6 @@ type Config struct {
 	ServerMode        string
 	JWTKey            string
 	Expiration        time.Duration
-	EnableMemoryStore bool
 	TLSOptions        *genericoptions.TLSOptions
 	HTTPOptions       *genericoptions.HTTPOptions
 	GRPCOptions       *genericoptions.GRPCOptions
@@ -92,7 +90,7 @@ func (cfg *Config) NewUnionServer() (*UnionServer, error) {
 	// 初始化 token 包的签名密钥、认证 Key 及 Token 默认过期时间
 	token.Init(cfg.JWTKey, token.WithIdentityKey(known.XUserID), token.WithExpiration(cfg.Expiration))
 
-	log.Infow("Initializing federation server", "server-mode", cfg.ServerMode, "enable-memory-store", cfg.EnableMemoryStore)
+	log.Infow("Initializing federation server", "server-mode", cfg.ServerMode)
 
 	// 创建服务配置，这些配置可用来创建服务器
 	srv, err := InitializeWebServer(cfg)
@@ -131,74 +129,26 @@ func (s *UnionServer) Run() error {
 
 // NewDB 创建一个 *gorm.DB 实例.
 func (cfg *Config) NewDB() (*gorm.DB, error) {
-	if !cfg.EnableMemoryStore {
-		// 优先使用 PostgreSQL，如果配置了的话
-		if cfg.PostgreSQLOptions != nil && cfg.PostgreSQLOptions.Database != "" {
-			log.Infow("Initializing database connection", "type", "postgresql", "addr", cfg.PostgreSQLOptions.Addr)
-			return cfg.PostgreSQLOptions.NewDB()
+	// 优先使用 PostgreSQL
+	if cfg.PostgreSQLOptions != nil && cfg.PostgreSQLOptions.Database != "" {
+		log.Infow("Initializing database connection", "type", "postgresql", "addr", cfg.PostgreSQLOptions.Addr)
+		db, err := cfg.PostgreSQLOptions.NewDB()
+		if err != nil {
+			return nil, err
 		}
-		// 其次使用 MySQL
-		if cfg.MySQLOptions != nil && cfg.MySQLOptions.Database != "" {
-			log.Infow("Initializing database connection", "type", "mysql", "addr", cfg.MySQLOptions.Addr)
-			return cfg.MySQLOptions.NewDB()
-		}
-		log.Warnw("No database configured, falling back to memory store")
+		// 注意：表结构通过数据库迁移工具管理，不使用 AutoMigrate
+		// 模型代码通过 cmd/gen-gorm-model 从数据库表结构生成
+		log.Infow("Database connection established")
+		return db, nil
 	}
 
-	log.Infow("Initializing database connection", "type", "memory", "engine", "SQLite")
-	// 使用SQLite内存模式配置数据库
-	// ?cache=shared 用于设置 SQLite 的缓存模式为 共享缓存模式 (shared)。
-	// 默认情况下，SQLite 的每个数据库连接拥有自己的独立缓存，这种模式称为 专用缓存 (private)。
-	// 使用 共享缓存模式 (shared) 后，不同连接可以共享同一个内存中的数据库和缓存。
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		log.Errorw("Failed to create database connection", "err", err)
-		return nil, err
+	// 其次使用 MySQL
+	if cfg.MySQLOptions != nil && cfg.MySQLOptions.Database != "" {
+		log.Infow("Initializing database connection", "type", "mysql", "addr", cfg.MySQLOptions.Addr)
+		return cfg.MySQLOptions.NewDB()
 	}
 
-	// 自动迁移数据库结构
-	if err := db.AutoMigrate(&model.UserM{}, &model.PostM{}, &model.CasbinRuleM{}); err != nil {
-		log.Errorw("Failed to migrate database schema", "err", err)
-		return nil, err
-	}
-
-	// 注意：这里仅仅为了实现快速部署，降低学习难度。
-	// 在真实企业开发中，不能再代码中硬编码这些初始化配置，
-	// 尤其是硬编码密码、密钥之类的信息.
-	// 插入 casbin_rule 表记录
-	adminR, userR := "role::admin", "role::user"
-	casbinRules := []model.CasbinRuleM{
-		{PType: ptr.To("g"), V0: ptr.To("user-000000"), V1: &adminR},
-		{PType: ptr.To("p"), V0: &adminR, V1: ptr.To("*"), V2: ptr.To("*"), V3: ptr.To("allow")},
-		{PType: ptr.To("p"), V0: &userR, V1: ptr.To("/v1.MiniBlog/DeleteUser"), V2: ptr.To("CALL"), V3: ptr.To("deny")},
-		{PType: ptr.To("p"), V0: &userR, V1: ptr.To("/v1.MiniBlog/ListUser"), V2: ptr.To("CALL"), V3: ptr.To("deny")},
-		{PType: ptr.To("p"), V0: &userR, V1: ptr.To("/v1/users"), V2: ptr.To("GET"), V3: ptr.To("deny")},
-		{PType: ptr.To("p"), V0: &userR, V1: ptr.To("/v1/users/*"), V2: ptr.To("DELETE"), V3: ptr.To("deny")},
-	}
-
-	if err := db.Create(&casbinRules).Error; err != nil {
-		log.Fatalw("Failed to insert casbin_rule records", "err", err)
-		return nil, err
-	}
-
-	// 插入默认用户（root用户）
-	user := model.UserM{
-		UserID:    "user-000000",
-		Username:  "root",
-		Password:  "miniblog1234",
-		Nickname:  "administrator",
-		Email:     "stary99c@163.com",
-		Phone:     "18110000000",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := db.Create(&user).Error; err != nil {
-		log.Fatalw("Failed to insert default root user", "err", err)
-		return nil, err
-	}
-
-	return db, nil
+	return nil, fmt.Errorf("no database configured: please set postgresql or mysql options")
 }
 
 // UserRetriever 定义一个用户数据获取器. 用来获取用户信息.
@@ -208,7 +158,7 @@ type UserRetriever struct {
 
 // GetUser 根据用户 ID 获取用户信息.
 func (r *UserRetriever) GetUser(ctx context.Context, userID string) (*model.UserM, error) {
-	return r.store.User().Get(ctx, where.F("userID", userID))
+	return r.store.User().Get(ctx, where.F("id", userID))
 }
 
 // ProvideDB 根据配置提供一个数据库实例。

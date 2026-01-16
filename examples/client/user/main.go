@@ -136,7 +136,7 @@ func main() {
 	}
 	log.Printf("[GetUser        ] Success to get user: %v", createUserResponse.UserID)
 
-	listResponse, err := client.ListUser(ctx, &apiv1.ListUserRequest{Offset: 0, Limit: *limit})
+	listResponse, err := client.ListUser(ctx, &apiv1.ListUserRequest{Offset: 0, Limit: uint64(*limit)})
 	if err != nil {
 		if !strings.Contains(err.Error(), "PermissionDenied") {
 			log.Printf("Failed to list user: %v", err)
@@ -151,7 +151,7 @@ func main() {
 	ctx = helper.MustWithAdminToken(ctx, client)
 
 	// 请求 ListUser 接口
-	listResponse, err = client.ListUser(ctx, &apiv1.ListUserRequest{Offset: 0, Limit: *limit})
+	listResponse, err = client.ListUser(ctx, &apiv1.ListUserRequest{Offset: 0, Limit: uint64(*limit)})
 	if err != nil {
 		log.Printf("Failed to list user: %v", err)
 		return

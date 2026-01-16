@@ -9,7 +9,6 @@ syntax = "proto3"; // 告诉编译器此文件使用什么版本的语法
 
 package apiserver.v1;
 
-import "github.com/onexstack/defaults/defaults.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1;apiserverv1";
@@ -44,32 +43,39 @@ message LoginRequest {
 
 // LoginResponse 表示登录响应
 message LoginResponse {
-    // token 表示返回的身份验证令牌
+    // token 表示返回的身份验证令牌 (访问令牌，24小时有效期)
     string token = 1;
-    // expireAt 表示该 token 的过期时间
-    google.protobuf.Timestamp expireAt = 2;
+    // refreshToken 表示刷新令牌 (7天有效期)
+    string refreshToken = 2;
+    // expireAt 表示访问令牌过期时间
+    google.protobuf.Timestamp expireAt = 3;
+    // user 表示登录用户的详细信息
+    User user = 4;
 }
 
-// RefreshTokenRequest 表示刷新令牌的请求
+// RefreshTokenRequest 表示刷新令牌请求
 message RefreshTokenRequest {
-    // 该请求无需额外字段，仅通过现有的认证信息（如旧的 token）进行刷新
+    // refreshToken 表示刷新令牌
+    string refreshToken = 1;
 }
 
-// RefreshTokenResponse 表示刷新令牌的响应
+// RefreshTokenResponse 表示刷新令牌响应
 message RefreshTokenResponse {
-    // token 表示返回的身份验证令牌
+    // token 表示新的访问令牌
     string token = 1;
-    // expireAt 表示该 token 的过期时间
-    google.protobuf.Timestamp expireAt = 2;
+    // refreshToken 表示新的刷新令牌
+    string refreshToken = 2;
+    // expireAt 表示访问令牌过期时间
+    google.protobuf.Timestamp expireAt = 3;
 }
 
 // ChangePasswordRequest 表示修改密码请求
 message ChangePasswordRequest {
     // userID 表示用户 ID
     string userID = 1;
-    // oldPassword 表示当前密码
+    // oldPassword 表示旧密码
     string oldPassword = 2;
-    // newPassword 表示准备修改的新密码
+    // newPassword 表示新密码
     string newPassword = 3;
 }
 
@@ -84,7 +90,7 @@ message CreateUserRequest {
     // password 表示用户密码
     string password = 2;
     // nickname 表示用户昵称
-    optional string nickname = 3 [(defaults.value).string = "你好世界"];
+    optional string nickname = 3;
     // email 表示用户电子邮箱
     string email = 4;
     // phone 表示用户手机号
@@ -129,29 +135,26 @@ message DeleteUserResponse {
 // GetUserRequest 表示获取用户请求
 message GetUserRequest {
     // userID 表示用户 ID
-    // @gotags: uri:"userID"
     string userID = 1;
 }
 
 // GetUserResponse 表示获取用户响应
 message GetUserResponse {
-    // user 表示返回的用户信息
+    // user 表示用户信息
     User user = 1;
 }
 
-// ListUserRequest 表示用户列表请求
+// ListUserRequest 表示列出用户请求
 message ListUserRequest {
     // offset 表示偏移量
-    // @gotags: form:"offset"
-    int64 offset = 1;
-    // limit 表示每页数量
-    // @gotags: form:"limit"
-    int64 limit = 2;
+    uint64 offset = 1;
+    // limit 表示返回数量限制
+    uint64 limit = 2;
 }
 
-// ListUserResponse 表示用户列表响应
+// ListUserResponse 表示列出用户响应
 message ListUserResponse {
-    // totalCount 表示总用户数
+    // totalCount 表示总用户数量
     int64 totalCount = 1;
     // users 表示用户列表
     repeated User users = 2;

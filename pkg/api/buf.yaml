@@ -1,0 +1,14 @@
+# Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
+# Use of this source code is governed by a MIT style
+# license that can be found in the LICENSE file.
+
+version: v1
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

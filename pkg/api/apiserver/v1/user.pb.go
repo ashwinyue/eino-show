@@ -15,7 +15,6 @@
 package apiserverv1
 
 import (
-	_ "github.com/onexstack/protoc-gen-defaults/defaults"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -198,10 +197,14 @@ func (x *LoginRequest) GetPassword() string {
 // LoginResponse 表示登录响应
 type LoginResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// token 表示返回的身份验证令牌
+	// token 表示返回的身份验证令牌 (访问令牌，24小时有效期)
 	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	// expireAt 表示该 token 的过期时间
-	ExpireAt      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expireAt,proto3" json:"expireAt,omitempty"`
+	// refreshToken 表示刷新令牌 (7天有效期)
+	RefreshToken string `protobuf:"bytes,2,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"`
+	// expireAt 表示访问令牌过期时间
+	ExpireAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expireAt,proto3" json:"expireAt,omitempty"`
+	// user 表示登录用户的详细信息
+	User          *User `protobuf:"bytes,4,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -243,6 +246,13 @@ func (x *LoginResponse) GetToken() string {
 	return ""
 }
 
+func (x *LoginResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 func (x *LoginResponse) GetExpireAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpireAt
@@ -250,9 +260,18 @@ func (x *LoginResponse) GetExpireAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// RefreshTokenRequest 表示刷新令牌的请求
+func (x *LoginResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+// RefreshTokenRequest 表示刷新令牌请求
 type RefreshTokenRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// refreshToken 表示刷新令牌
+	RefreshToken  string `protobuf:"bytes,1,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -287,13 +306,22 @@ func (*RefreshTokenRequest) Descriptor() ([]byte, []int) {
 	return file_apiserver_v1_user_proto_rawDescGZIP(), []int{3}
 }
 
-// RefreshTokenResponse 表示刷新令牌的响应
+func (x *RefreshTokenRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+// RefreshTokenResponse 表示刷新令牌响应
 type RefreshTokenResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// token 表示返回的身份验证令牌
+	// token 表示新的访问令牌
 	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	// expireAt 表示该 token 的过期时间
-	ExpireAt      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expireAt,proto3" json:"expireAt,omitempty"`
+	// refreshToken 表示新的刷新令牌
+	RefreshToken string `protobuf:"bytes,2,opt,name=refreshToken,proto3" json:"refreshToken,omitempty"`
+	// expireAt 表示访问令牌过期时间
+	ExpireAt      *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expireAt,proto3" json:"expireAt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -335,6 +363,13 @@ func (x *RefreshTokenResponse) GetToken() string {
 	return ""
 }
 
+func (x *RefreshTokenResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 func (x *RefreshTokenResponse) GetExpireAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpireAt
@@ -347,9 +382,9 @@ type ChangePasswordRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// userID 表示用户 ID
 	UserID string `protobuf:"bytes,1,opt,name=userID,proto3" json:"userID,omitempty"`
-	// oldPassword 表示当前密码
+	// oldPassword 表示旧密码
 	OldPassword string `protobuf:"bytes,2,opt,name=oldPassword,proto3" json:"oldPassword,omitempty"`
-	// newPassword 表示准备修改的新密码
+	// newPassword 表示新密码
 	NewPassword   string `protobuf:"bytes,3,opt,name=newPassword,proto3" json:"newPassword,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -778,7 +813,6 @@ func (*DeleteUserResponse) Descriptor() ([]byte, []int) {
 type GetUserRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// userID 表示用户 ID
-	// @gotags: uri:"userID"
 	UserID        string `protobuf:"bytes,1,opt,name=userID,proto3" json:"userID,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -824,7 +858,7 @@ func (x *GetUserRequest) GetUserID() string {
 // GetUserResponse 表示获取用户响应
 type GetUserResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// user 表示返回的用户信息
+	// user 表示用户信息
 	User          *User `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -867,15 +901,13 @@ func (x *GetUserResponse) GetUser() *User {
 	return nil
 }
 
-// ListUserRequest 表示用户列表请求
+// ListUserRequest 表示列出用户请求
 type ListUserRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// offset 表示偏移量
-	// @gotags: form:"offset"
-	Offset int64 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
-	// limit 表示每页数量
-	// @gotags: form:"limit"
-	Limit         int64 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset uint64 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
+	// limit 表示返回数量限制
+	Limit         uint64 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -910,24 +942,24 @@ func (*ListUserRequest) Descriptor() ([]byte, []int) {
 	return file_apiserver_v1_user_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *ListUserRequest) GetOffset() int64 {
+func (x *ListUserRequest) GetOffset() uint64 {
 	if x != nil {
 		return x.Offset
 	}
 	return 0
 }
 
-func (x *ListUserRequest) GetLimit() int64 {
+func (x *ListUserRequest) GetLimit() uint64 {
 	if x != nil {
 		return x.Limit
 	}
 	return 0
 }
 
-// ListUserResponse 表示用户列表响应
+// ListUserResponse 表示列出用户响应
 type ListUserResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// totalCount 表示总用户数
+	// totalCount 表示总用户数量
 	TotalCount int64 `protobuf:"varint,1,opt,name=totalCount,proto3" json:"totalCount,omitempty"`
 	// users 表示用户列表
 	Users         []*User `protobuf:"bytes,2,rep,name=users,proto3" json:"users,omitempty"`
@@ -983,7 +1015,7 @@ var File_apiserver_v1_user_proto protoreflect.FileDescriptor
 
 const file_apiserver_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x17apiserver/v1/user.proto\x12\fapiserver.v1\x1a,github.com/onexstack/defaults/defaults.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x94\x02\n" +
+	"\x17apiserver/v1/user.proto\x12\fapiserver.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x94\x02\n" +
 	"\x04User\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\tR\x06userID\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
@@ -995,23 +1027,27 @@ const file_apiserver_v1_user_proto_rawDesc = "" +
 	"\tupdatedAt\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"F\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"]\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"\xa9\x01\n" +
 	"\rLoginResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x126\n" +
-	"\bexpireAt\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bexpireAt\"\x15\n" +
-	"\x13RefreshTokenRequest\"d\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\"\n" +
+	"\frefreshToken\x18\x02 \x01(\tR\frefreshToken\x126\n" +
+	"\bexpireAt\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bexpireAt\x12&\n" +
+	"\x04user\x18\x04 \x01(\v2\x12.apiserver.v1.UserR\x04user\"9\n" +
+	"\x13RefreshTokenRequest\x12\"\n" +
+	"\frefreshToken\x18\x01 \x01(\tR\frefreshToken\"\x88\x01\n" +
 	"\x14RefreshTokenResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x126\n" +
-	"\bexpireAt\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bexpireAt\"s\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\"\n" +
+	"\frefreshToken\x18\x02 \x01(\tR\frefreshToken\x126\n" +
+	"\bexpireAt\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bexpireAt\"s\n" +
 	"\x15ChangePasswordRequest\x12\x16\n" +
 	"\x06userID\x18\x01 \x01(\tR\x06userID\x12 \n" +
 	"\voldPassword\x18\x02 \x01(\tR\voldPassword\x12 \n" +
 	"\vnewPassword\x18\x03 \x01(\tR\vnewPassword\"\x18\n" +
-	"\x16ChangePasswordResponse\"\xb8\x01\n" +
+	"\x16ChangePasswordResponse\"\xa5\x01\n" +
 	"\x11CreateUserRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\x122\n" +
-	"\bnickname\x18\x03 \x01(\tB\x11\x9aI\x0er\f你好世界H\x00R\bnickname\x88\x01\x01\x12\x14\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1f\n" +
+	"\bnickname\x18\x03 \x01(\tH\x00R\bnickname\x88\x01\x01\x12\x14\n" +
 	"\x05email\x18\x04 \x01(\tR\x05email\x12\x14\n" +
 	"\x05phone\x18\x05 \x01(\tR\x05phoneB\v\n" +
 	"\t_nickname\",\n" +
@@ -1036,8 +1072,8 @@ const file_apiserver_v1_user_proto_rawDesc = "" +
 	"\x0fGetUserResponse\x12&\n" +
 	"\x04user\x18\x01 \x01(\v2\x12.apiserver.v1.UserR\x04user\"?\n" +
 	"\x0fListUserRequest\x12\x16\n" +
-	"\x06offset\x18\x01 \x01(\x03R\x06offset\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x03R\x05limit\"\\\n" +
+	"\x06offset\x18\x01 \x01(\x04R\x06offset\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x04R\x05limit\"\\\n" +
 	"\x10ListUserResponse\x12\x1e\n" +
 	"\n" +
 	"totalCount\x18\x01 \x01(\x03R\n" +
@@ -1081,14 +1117,15 @@ var file_apiserver_v1_user_proto_depIdxs = []int32{
 	17, // 0: apiserver.v1.User.createdAt:type_name -> google.protobuf.Timestamp
 	17, // 1: apiserver.v1.User.updatedAt:type_name -> google.protobuf.Timestamp
 	17, // 2: apiserver.v1.LoginResponse.expireAt:type_name -> google.protobuf.Timestamp
-	17, // 3: apiserver.v1.RefreshTokenResponse.expireAt:type_name -> google.protobuf.Timestamp
-	0,  // 4: apiserver.v1.GetUserResponse.user:type_name -> apiserver.v1.User
-	0,  // 5: apiserver.v1.ListUserResponse.users:type_name -> apiserver.v1.User
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	0,  // 3: apiserver.v1.LoginResponse.user:type_name -> apiserver.v1.User
+	17, // 4: apiserver.v1.RefreshTokenResponse.expireAt:type_name -> google.protobuf.Timestamp
+	0,  // 5: apiserver.v1.GetUserResponse.user:type_name -> apiserver.v1.User
+	0,  // 6: apiserver.v1.ListUserResponse.users:type_name -> apiserver.v1.User
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_apiserver_v1_user_proto_init() }

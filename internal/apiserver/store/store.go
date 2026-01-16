@@ -6,7 +6,7 @@
 
 package store
 
-//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,PostStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,ConcretePostStore
+//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,AuthTokenStore
 
 import (
 	"context"
@@ -36,14 +36,12 @@ type IStore interface {
 	TX(ctx context.Context, fn func(ctx context.Context) error) error
 
 	User() UserStore
-	Post() PostStore
 	Session() SessionStore
 	CustomAgent() CustomAgentStore
 	KnowledgeBase() KnowledgeBaseStore
 	Knowledge() KnowledgeStore
 	Chunk() ChunkStore
-	// ConcretePost ConcretePosts 是一个示例 store 实现，用来演示在 Go 中如何直接与 DB 交互.
-	ConcretePost() ConcretePostStore
+	AuthToken() AuthTokenStore
 }
 
 // transactionKey 用于在 context.Context 中存储事务上下文的键.
@@ -102,16 +100,6 @@ func (store *datastore) User() UserStore {
 	return newUserStore(store)
 }
 
-// Post 返回一个实现了 PostStore 接口的实例.
-func (store *datastore) Post() PostStore {
-	return newPostStore(store)
-}
-
-// ConcretePost 返回一个实现了 ConcretePostStore 接口的实例.
-func (store *datastore) ConcretePost() ConcretePostStore {
-	return newConcretePostStore(store)
-}
-
 // Session 返回一个实现了 SessionStore 接口的实例.
 func (store *datastore) Session() SessionStore {
 	return newSessionStore(store)
@@ -135,4 +123,9 @@ func (store *datastore) Knowledge() KnowledgeStore {
 // Chunk 返回一个实现了 ChunkStore 接口的实例.
 func (store *datastore) Chunk() ChunkStore {
 	return newChunkStore(store)
+}
+
+// AuthToken 返回一个实现了 AuthTokenStore 接口的实例.
+func (store *datastore) AuthToken() AuthTokenStore {
+	return newAuthTokenStore(store)
 }

@@ -8,6 +8,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 
 	genericstore "github.com/onexstack/onexstack/pkg/store"
 	"github.com/onexstack/onexstack/pkg/store/where"
@@ -134,6 +135,10 @@ type ChunkExpansion interface {
 	GetByKnowledgeBaseID(ctx context.Context, kbID string) ([]*model.ChunkM, error)
 	// DeleteByKnowledgeID 删除指定知识的所有分块
 	DeleteByKnowledgeID(ctx context.Context, knowledgeID string) error
+	// VectorSearch 向量搜索：根据查询向量返回最相似的 N 个分块
+	VectorSearch(ctx context.Context, kbID string, embedding []float32, limit int) ([]*model.ChunkM, error)
+	// KeywordSearch 关键词搜索：根据关键词返回包含该关键词的分块
+	KeywordSearch(ctx context.Context, kbID string, keyword string, limit int, caseSensitive bool) ([]*model.ChunkM, error)
 }
 
 // chunkStore 是 ChunkStore 接口的实现.
@@ -201,4 +206,72 @@ func (s *chunkStore) GetByKnowledgeBaseID(ctx context.Context, kbID string) ([]*
 // DeleteByKnowledgeID 删除指定知识的所有分块.
 func (s *chunkStore) DeleteByKnowledgeID(ctx context.Context, knowledgeID string) error {
 	return s.store.DB(ctx).Where("knowledge_id = ?", knowledgeID).Delete(new(model.ChunkM)).Error
+}
+
+// VectorSearch 向量搜索：根据查询向量返回最相似的 N 个分块.
+// 使用 PGVector 的 cosine 距离计算相似度.
+func (s *chunkStore) VectorSearch(ctx context.Context, kbID string, embedding []float32, limit int) ([]*model.ChunkM, error) {
+	var list []*model.ChunkM
+
+	// 将 []float32 转换为 PGVector 格式的字符串 "[0.1,0.2,...]"
+	embeddingStr := vectorToString(embedding)
+
+	// 使用 PGVector 的 cosine 距离计算相似度
+	// 距离越小越相似，返回按距离排序的前 limit 条结果
+	query := s.store.DB(ctx).
+		Where("knowledge_base_id = ?", kbID).
+		Order("embedding <=> ?")
+
+	// 如果 limit <= 0，默认返回 5 条
+	if limit <= 0 {
+		limit = 5
+	}
+
+	err := query.Limit(limit).Find(&list, embeddingStr).Error
+	return list, err
+}
+
+// vectorToString 将 []float32 向量转换为 PGVector 格式的字符串.
+func vectorToString(v []float32) string {
+	if len(v) == 0 {
+		return "[]"
+	}
+	result := "["
+	for i, val := range v {
+		if i > 0 {
+			result += ","
+		}
+		result += floatToString(val)
+	}
+	result += "]"
+	return result
+}
+
+// floatToString 将 float32 转换为字符串格式.
+func floatToString(f float32) string {
+	return fmt.Sprintf("%f", f)
+}
+
+// KeywordSearch 关键词搜索：根据关键词返回包含该关键词的分块.
+func (s *chunkStore) KeywordSearch(ctx context.Context, kbID string, keyword string, limit int, caseSensitive bool) ([]*model.ChunkM, error) {
+	var list []*model.ChunkM
+
+	// 构建查询
+	query := s.store.DB(ctx).Where("knowledge_base_id = ?", kbID)
+
+	// 根据是否区分大小写使用不同的查询
+	if caseSensitive {
+		query = query.Where("content LIKE ?", "%"+keyword+"%")
+	} else {
+		// PostgreSQL 的 ILIKE 用于不区分大小写的搜索
+		query = query.Where("content ILIKE ?", "%"+keyword+"%")
+	}
+
+	// 设置 limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	err := query.Order("id ASC").Limit(limit).Find(&list).Error
+	return list, err
 }
