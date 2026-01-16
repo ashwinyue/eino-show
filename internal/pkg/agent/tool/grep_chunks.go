@@ -1,9 +1,3 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 // Package tool 提供 Eino 工具实现.
 package tool
 
@@ -36,10 +30,44 @@ func NewGrepChunks(s store.IStore) *GrepChunks {
 var _ tool.InvokableTool = (*GrepChunks)(nil)
 
 // Info 返回工具信息.
+//
+// IMPORTANT: The Desc field and parameter descriptions are sent to LLM.
+// They MUST be in English for better model understanding.
+// This description is copied from WeKnora to maintain compatibility.
 func (t *GrepChunks) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "grep_chunks",
-		Desc: "在知识库中搜索包含特定关键词的文档片段。适合精确查找特定术语或短语的场景。",
+		Desc: `Unix-style text pattern matching tool for knowledge base chunks.
+
+Searches for text patterns in chunk content using strict literal text matching (fixed-string search). This tool performs exact keyword lookup, not semantic search.
+
+## Core Function
+Performs exact, literal text pattern matching. Accepts a text pattern and returns chunks containing the pattern.
+
+## CRITICAL – Keyword Extraction Rules
+This tool MUST receive **short, high-value keywords** only.
+**Do NOT use long phrases, sentences, or multi-word expressions.**
+
+Provide only the **minimal core entities** extracted from user query, such as:
+- Proper nouns
+- Key concepts
+- Domain terms
+- Distinct entities that define the query
+
+### Requirements
+- Keywords should be **1–3 words maximum**
+- Focus exclusively on **core entities**, not descriptions
+- Avoid phrases, explanations, or anything that reduces match probability
+- Preserve precision details embedded in the query (e.g., version numbers, build IDs) when they materially define the entity being matched
+
+Long phrases dramatically reduce recall because chunks rarely contain identical wording.
+Only short, atomic keywords ensure accurate matching and avoid unrelated retrieval.
+
+## When to Use
+- Extracting core entities from user input
+- Exact keyword presence checks
+- Fast preliminary filtering before semantic search
+- Situations requiring deterministic text search`,
 		ParamsOneOf: schema.NewParamsOneOfByJSONSchema(
 			jsonschema.Reflect(grepChunksArgs{}),
 		),
@@ -48,10 +76,10 @@ func (t *GrepChunks) Info(_ context.Context) (*schema.ToolInfo, error) {
 
 // grepChunksArgs 关键词搜索参数.
 type grepChunksArgs struct {
-	Query           string `json:"query" jsonschema:"description=要搜索的关键词或短语,required"`
-	KnowledgeBaseID string `json:"knowledge_base_id" jsonschema:"description=要搜索的知识库ID,required"`
-	CaseSensitive   bool   `json:"case_sensitive" jsonschema:"description=是否区分大小写，默认false"`
-	TopK            int    `json:"top_k" jsonschema:"description=返回结果数量，默认10"`
+	Query           string `json:"query" jsonschema:"description=REQUIRED: Short keyword or text pattern to search for (1-3 words recommended, exact literal matching),required"`
+	KnowledgeBaseID string `json:"knowledge_base_id" jsonschema:"description=The ID of the knowledge base to search in,required"`
+	CaseSensitive   bool   `json:"case_sensitive" jsonschema:"description=Whether to match case-sensitively, default is false"`
+	TopK            int    `json:"top_k" jsonschema:"description=Maximum number of matching chunks to return, default is 10"`
 }
 
 // InvokableRun 执行工具.
@@ -116,26 +144,27 @@ func (t *GrepChunks) filterByKeyword(chunks []*model.ChunkM, keyword string, cas
 // formatResults 格式化搜索结果.
 func (t *GrepChunks) formatResults(chunks []*model.ChunkM, query string) string {
 	if len(chunks) == 0 {
-		return fmt.Sprintf("未找到包含关键词 \"%s\" 的内容。", query)
+		return fmt.Sprintf("No content found containing keyword \"%s\".", query)
 	}
 
-	result := fmt.Sprintf("找到 %d 条包含关键词 \"%s\" 的内容：\n\n", len(chunks), query)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Found %d items containing keyword \"%s\":\n\n", len(chunks), query))
 	for i, chunk := range chunks {
-		result += fmt.Sprintf("[%d] ", i+1)
+		sb.WriteString(fmt.Sprintf("[%d] ", i+1))
 
-		// 高亮关键词位置
+		// Highlight keyword position
 		content := chunk.Content
 		if len(content) > 300 {
 			content = content[:300] + "..."
 		}
-		result += content + "\n"
+		sb.WriteString(content + "\n")
 
-		// 可选：添加来源信息
+		// Optional: add source information
 		if chunk.KnowledgeID != "" {
-			result += fmt.Sprintf("    来源: 知识项 %s\n", chunk.KnowledgeID)
+			sb.WriteString(fmt.Sprintf("    Source: Knowledge %s\n", chunk.KnowledgeID))
 		}
-		result += "\n"
+		sb.WriteString("\n")
 	}
 
-	return result
+	return sb.String()
 }

@@ -1,17 +1,11 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 // Package model 提供 ChatModel 工厂，支持多种 LLM 提供商.
 package model
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -20,7 +14,7 @@ import (
 
 // Config 定义 ChatModel 配置.
 type Config struct {
-	// Provider 模型提供商: openai, ark, azure, etc.
+	// Provider 模型提供商: openai, ark, dashscope, azure, etc.
 	Provider string `json:"provider"`
 
 	// Model 模型名称
@@ -45,6 +39,13 @@ type Config struct {
 	Timeout int `json:"timeout"`
 }
 
+// DashScope 专用常量
+const (
+	DashScopeProvider    = "dashscope"
+	DashScopeBaseURL     = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	DashScopeDefaultModel = "qwen-turbo"
+)
+
 // NewChatModel 根据配置创建 ChatModel.
 func NewChatModel(ctx context.Context, cfg *Config) (model.ChatModel, error) {
 	if cfg == nil {
@@ -56,6 +57,8 @@ func NewChatModel(ctx context.Context, cfg *Config) (model.ChatModel, error) {
 		return newOpenAIChatModel(ctx, cfg)
 	case "ark":
 		return newArkChatModel(ctx, cfg)
+	case DashScopeProvider:
+		return newDashScopeChatModel(ctx, cfg)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", cfg.Provider)
 	}
@@ -81,9 +84,7 @@ func newOpenAIChatModel(ctx context.Context, cfg *Config) (*openai.ChatModel, er
 	if cfg.MaxTokens > 0 {
 		config.MaxTokens = &cfg.MaxTokens
 	}
-	if cfg.Timeout > 0 {
-		config.Timeout = cfg.timeoutDuration()
-	}
+	// Timeout 暂不设置，使用默认值
 
 	// 从环境变量获取默认值
 	if config.APIKey == "" {
@@ -121,10 +122,7 @@ func newArkChatModel(ctx context.Context, cfg *Config) (*ark.ChatModel, error) {
 	if cfg.MaxTokens > 0 {
 		config.MaxTokens = &cfg.MaxTokens
 	}
-	if cfg.Timeout > 0 {
-		t := cfg.timeoutDuration()
-		config.Timeout = &t
-	}
+	// Timeout 暂不设置，使用默认值
 
 	// 从环境变量获取默认值
 	if config.APIKey == "" {
@@ -140,9 +138,45 @@ func newArkChatModel(ctx context.Context, cfg *Config) (*ark.ChatModel, error) {
 	return ark.NewChatModel(ctx, config)
 }
 
-// timeoutDuration 将秒转换为 time.Duration.
-func (c *Config) timeoutDuration() time.Duration {
-	return time.Duration(c.Timeout) * time.Second
+// newDashScopeChatModel 创建 DashScope ChatModel (阿里云).
+// DashScope 使用 OpenAI 兼容 API，但需要特定的 BaseURL.
+func newDashScopeChatModel(ctx context.Context, cfg *Config) (*openai.ChatModel, error) {
+	config := &openai.ChatModelConfig{
+		Model:   cfg.Model,
+		APIKey:  cfg.APIKey,
+		BaseURL: cfg.BaseURL,
+	}
+
+	// DashScope 默认使用兼容模式的 API 端点
+	if config.BaseURL == "" {
+		config.BaseURL = DashScopeBaseURL
+	}
+
+	// 设置默认模型名称
+	if config.Model == "" {
+		config.Model = DashScopeDefaultModel
+	}
+
+	// 设置可选参数（仅在非零值时设置）
+	if cfg.Temperature > 0 {
+		t := float32(cfg.Temperature)
+		config.Temperature = &t
+	}
+	if cfg.TopP > 0 {
+		p := float32(cfg.TopP)
+		config.TopP = &p
+	}
+	if cfg.MaxTokens > 0 {
+		config.MaxTokens = &cfg.MaxTokens
+	}
+	// Timeout 暂不设置，使用默认值
+
+	// 从环境变量获取 APIKey
+	if config.APIKey == "" {
+		config.APIKey = os.Getenv("DASHSCOPE_API_KEY")
+	}
+
+	return openai.NewChatModel(ctx, config)
 }
 
 // DefaultConfig 返回默认配置（从环境变量读取）.
@@ -164,4 +198,53 @@ func DefaultConfig() *Config {
 // NewDefaultChatModel 使用默认配置创建 ChatModel.
 func NewDefaultChatModel(ctx context.Context) (model.ChatModel, error) {
 	return NewChatModel(ctx, DefaultConfig())
+}
+
+// ModelParameters 数据库存储的模型参数.
+type ModelParameters struct {
+	APIKey     string              `json:"api_key"`
+	BaseURL    string              `json:"base_url"`
+	ExtraConfig map[string]string `json:"extra_config"`
+}
+
+// NewChatModelFromDB 从数据库模型配置创建 ChatModel.
+func NewChatModelFromDB(ctx context.Context, modelName, modelSource string, parametersJSON string) (model.ChatModel, error) {
+	// 解析参数
+	var params ModelParameters
+	if parametersJSON != "" && parametersJSON != "{}" {
+		if err := json.Unmarshal([]byte(parametersJSON), &params); err != nil {
+			return nil, fmt.Errorf("failed to parse model parameters: %w", err)
+		}
+	}
+
+	// 根据来源选择 provider
+	var provider string
+	var baseURL string
+
+	switch modelSource {
+	case "aliyun", "dashscope", "DashScope", "Aliyun":
+		provider = DashScopeProvider
+		baseURL = DashScopeBaseURL
+	case "openai", "OpenAI":
+			provider = "openai"
+	case "ark", "Ark":
+		provider = "ark"
+	default:
+		return nil, fmt.Errorf("unsupported model source: %s", modelSource)
+	}
+
+	// 使用数据库配置覆盖环境变量
+	cfg := &Config{
+		Provider: provider,
+		Model:    modelName,
+		APIKey:   params.APIKey,
+		BaseURL: baseURL,
+	}
+
+	// 如果数据库中有自定义 BaseURL，使用它
+	if params.BaseURL != "" {
+		cfg.BaseURL = params.BaseURL
+	}
+
+	return NewChatModel(ctx, cfg)
 }

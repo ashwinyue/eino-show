@@ -1,15 +1,4 @@
 #!/bin/bash
-
-# Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-# Use of this source code is governed by a MIT style
-# license that can be found in the LICENSE file. The original repo for
-# this file is https://github.com/ashwinyue/eino-show. The professional
-# version of this repository is https://github.com/onexstack/onex.
-
-
-# 定义Header
-HEADER='{"alg":"HS256","typ":"JWT"}'
-
 # 定义Payload
 PAYLOAD='{"exp":1739078005,"iat":1735478005,"nbf":1735478005,"x-user-id":"user-w6irkg"}'
 

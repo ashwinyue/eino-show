@@ -1,9 +1,3 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 package apiserver
 
 import (
@@ -102,6 +96,8 @@ func (c *ServerConfig) InstallRESTAPI(engine *gin.Engine) {
 			sessionv1.POST("", handler.CreateSession)
 			sessionv1.PUT("/:id", handler.UpdateSession)
 			sessionv1.DELETE("/:id", handler.DeleteSession)
+			// 问答接口（流式 SSE）
+			sessionv1.POST("/:id/qa", handler.QA)
 		}
 
 		// Knowledge Base 相关路由

@@ -1,15 +1,4 @@
 #!/bin/bash
-
-# Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-# Use of this source code is governed by a MIT style
-# license that can be found in the LICENSE file. The original repo for
-# this file is https://github.com/ashwinyue/eino-show. The professional
-# version of this repository is https://github.com/onexstack/onex.
-
-
-: << EOF
-API 性能测试脚本，会自动执行 wrk 命令，采集数据、分析数据并调用 gnuplot 画图
-
 使用方式 ( 测试 API 性能)：
 1. 启动 mb-apiserver (5555 端口)
 2. 执行测试脚本: ./wrktest.sh

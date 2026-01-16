@@ -1,9 +1,3 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 // Package tool 提供 Eino 工具实现.
 package tool
 
@@ -11,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/model"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
@@ -38,10 +33,52 @@ func NewKnowledgeSearch(s store.IStore, embedder embedding.Embedder) *KnowledgeS
 var _ tool.InvokableTool = (*KnowledgeSearch)(nil)
 
 // Info 返回工具信息.
+//
+// IMPORTANT: The Desc field and parameter descriptions are sent to LLM.
+// They MUST be in English for better model understanding.
+// This description is copied from WeKnora to maintain compatibility.
 func (t *KnowledgeSearch) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "knowledge_search",
-		Desc: "在知识库中搜索相关信息。输入应包含查询问题和知识库ID。",
+		Desc: `Semantic/vector search tool for retrieving knowledge by meaning, intent, and conceptual relevance.
+
+This tool uses embeddings to understand the user's query and find semantically similar content across knowledge base chunks.
+
+## Purpose
+Designed for high-level understanding tasks, such as:
+- conceptual explanations
+- topic overviews
+- reasoning-based information needs
+- contextual or intent-driven retrieval
+- queries that cannot be answered with literal keyword matching
+
+The tool searches by MEANING rather than exact text. It identifies chunks that are conceptually relevant even when the wording differs.
+
+## What the Tool Does NOT Do
+- Does NOT perform exact keyword matching
+- Does NOT search for specific named entities
+- Should NOT be used for literal lookup tasks
+- Should NOT receive long raw text or user messages as queries
+- Should NOT be used to locate specific strings or error codes
+
+For literal/keyword/entity search, use grep_chunks tool instead.
+
+## Required Input Behavior
+"query" must be a **short, well-formed semantic question or conceptual statement** that clearly expresses the meaning you are trying to retrieve.
+
+The query should represent a **concept, idea, topic, explanation, or intent**, such as:
+- abstract topics
+- definitions
+- mechanisms
+- best practices
+- comparisons
+- how/why questions
+
+Avoid:
+- keyword lists
+- raw text from user messages
+- full paragraphs
+- unprocessed input`,
 		ParamsOneOf: schema.NewParamsOneOfByJSONSchema(
 			jsonschema.Reflect(knowledgeSearchArgs{}),
 		),
@@ -50,9 +87,9 @@ func (t *KnowledgeSearch) Info(_ context.Context) (*schema.ToolInfo, error) {
 
 // knowledgeSearchArgs 知识搜索参数.
 type knowledgeSearchArgs struct {
-	Query           string `json:"query" jsonschema:"description=搜索查询问题,required"`
-	KnowledgeBaseID string `json:"knowledge_base_id" jsonschema:"description=要搜索的知识库ID,required"`
-	TopK            int    `json:"top_k" jsonschema:"description=返回结果数量，默认5"`
+	Query           string `json:"query" jsonschema:"description=REQUIRED: A semantic question or conceptual statement expressing the meaning to retrieve (e.g., 'What is RAG?', 'How does vector search work?'),required"`
+	KnowledgeBaseID string `json:"knowledge_base_id" jsonschema:"description=The ID of the knowledge base to search in,required"`
+	TopK            int    `json:"top_k" jsonschema:"description=Number of results to return, default is 5"`
 }
 
 // InvokableRun 执行工具.
@@ -107,14 +144,15 @@ func (t *KnowledgeSearch) InvokableRun(ctx context.Context, argumentsInJSON stri
 // formatResults 格式化搜索结果.
 func (t *KnowledgeSearch) formatResults(chunks []*model.ChunkM) string {
 	if len(chunks) == 0 {
-		return "未找到相关内容。"
+		return "No relevant content found in the knowledge base."
 	}
 
-	result := fmt.Sprintf("找到 %d 条相关内容：\n\n", len(chunks))
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Found %d relevant items:\n\n", len(chunks)))
 	for i, chunk := range chunks {
-		result += fmt.Sprintf("[%d] %s\n", i+1, chunk.Content)
-		// 可选：添加更多信息
-		result += "\n"
+		sb.WriteString(fmt.Sprintf("[%d] %s\n", i+1, chunk.Content))
+		// Optional: add more information
+		sb.WriteString("\n")
 	}
-	return result
+	return sb.String()
 }

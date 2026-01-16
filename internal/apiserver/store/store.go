@@ -1,19 +1,12 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 package store
 
-//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,AuthTokenStore
+//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,AuthTokenStore,ModelStore
 
 import (
 	"context"
 	"sync"
 
 	"github.com/google/wire"
-	"github.com/onexstack/onexstack/pkg/store/where"
 	"gorm.io/gorm"
 )
 
@@ -42,6 +35,7 @@ type IStore interface {
 	Knowledge() KnowledgeStore
 	Chunk() ChunkStore
 	AuthToken() AuthTokenStore
+	Model() ModelStore
 }
 
 // transactionKey 用于在 context.Context 中存储事务上下文的键.
@@ -125,7 +119,12 @@ func (store *datastore) Chunk() ChunkStore {
 	return newChunkStore(store)
 }
 
-// AuthToken 返回一个实现了 AuthTokenStore 接口的实例.
+// AuthToken 返回一个实现了 AuthTokenStore 接口.
 func (store *datastore) AuthToken() AuthTokenStore {
 	return newAuthTokenStore(store)
+}
+
+// Model 返回一个实现了 ModelStore 接口的实例.
+func (store *datastore) Model() ModelStore {
+	return newModelStore(store)
 }

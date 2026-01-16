@@ -1,9 +1,3 @@
-// Copyright 2026 阿斯温月 <stary99c@163.com>. All rights reserved.
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/ashwinyue/eino-show. The professional
-// version of this repository is https://github.com/onexstack/onex.
-
 // Package session 提供会话业务逻辑.
 package session
 
@@ -217,7 +211,8 @@ func QAWithFactory(ctx context.Context, factory factoryInterface, store store.IS
 	}
 
 	// 创建流式响应
-	return newSessionAgentStream(ctx, agentID, agentInstance, messages)
+	stream := newSessionAgentStream(ctx, agentID, agentInstance, messages)
+	return stream, nil
 }
 
 // factoryInterface Agent 工厂接口 (避免循环依赖).
