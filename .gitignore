@@ -1,0 +1,88 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+_output/
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Debug files
+debug
+__debug_bin
+*.debug
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.DS_Store
+
+# Build artifacts
+*.o
+*.a
+
+# Generated files (keep wire_gen.go)
+# wire_gen.go is needed, but other generated files should be reviewed
+*.gen.go
+!internal/apiserver/model/*.gen.go
+
+# Frontend (if any)
+node_modules/
+dist/
+build/
+.cache/
+
+# Spec workflow
+.spec-workflow/archive/
+
+# Old references
+a-old/
+
+# Python (if any scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Claude Code
+.claude/session_history/
