@@ -3,6 +3,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -98,4 +99,48 @@ func DefaultEmbeddingConfig() *EmbeddingConfig {
 // NewDefaultEmbedder 使用默认配置创建 Embedder.
 func NewDefaultEmbedder(ctx context.Context) (embedding.Embedder, error) {
 	return NewEmbedder(ctx, DefaultEmbeddingConfig())
+}
+
+// EmbeddingParameters 数据库存储的向量模型参数.
+type EmbeddingParameters struct {
+	APIKey      string            `json:"api_key"`
+	BaseURL     string            `json:"base_url"`
+	ExtraConfig map[string]string `json:"extra_config"`
+}
+
+// NewEmbedderFromDB 从数据库模型配置创建 Embedder.
+func NewEmbedderFromDB(ctx context.Context, modelName, modelSource string, parametersJSON string) (embedding.Embedder, error) {
+	// 解析参数
+	var params EmbeddingParameters
+	if parametersJSON != "" && parametersJSON != "{}" {
+		if err := json.Unmarshal([]byte(parametersJSON), &params); err != nil {
+			return nil, fmt.Errorf("failed to parse embedding parameters: %w", err)
+		}
+	}
+
+	// 根据来源选择 provider
+	var provider string
+	var baseURL string
+
+	switch modelSource {
+	case "openai", "OpenAI":
+		provider = "openai"
+	default:
+		return nil, fmt.Errorf("unsupported embedding model source: %s", modelSource)
+	}
+
+	// 使用数据库配置覆盖环境变量
+	cfg := &EmbeddingConfig{
+		Provider: provider,
+		Model:    modelName,
+		APIKey:   params.APIKey,
+		BaseURL:  baseURL,
+	}
+
+	// 如果数据库中有自定义 BaseURL，使用它
+	if params.BaseURL != "" {
+		cfg.BaseURL = params.BaseURL
+	}
+
+	return NewEmbedder(ctx, cfg)
 }

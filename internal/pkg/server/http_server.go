@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	genericoptions "github.com/onexstack/onexstack/pkg/options"
+	genericoptions "github.com/ashwinyue/eino-show/pkg/options"
 
 	"github.com/ashwinyue/eino-show/internal/pkg/log"
 )

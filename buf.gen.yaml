@@ -1,3 +1,4 @@
+version: v1
 plugins:
   # 生成 Go 代码
   - plugin: buf.build/protocolbuffers/go

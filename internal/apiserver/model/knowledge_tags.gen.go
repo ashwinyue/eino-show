@@ -14,7 +14,7 @@ const TableNameKnowledgeTagM = "knowledge_tags"
 
 // KnowledgeTagM mapped from table <knowledge_tags>
 type KnowledgeTagM struct {
-	ID              string         `gorm:"column:id;primaryKey" json:"id"`
+	ID              string         `gorm:"column:id;primaryKey;default:uuid_generate_v4()" json:"id"`
 	TenantID        int32          `gorm:"column:tenant_id;not null" json:"tenant_id"`
 	KnowledgeBaseID string         `gorm:"column:knowledge_base_id;not null" json:"knowledge_base_id"`
 	Name            string         `gorm:"column:name;not null" json:"name"`

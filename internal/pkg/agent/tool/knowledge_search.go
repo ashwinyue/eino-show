@@ -130,28 +130,35 @@ func (t *KnowledgeSearch) InvokableRun(ctx context.Context, argumentsInJSON stri
 		embedding32[i] = float32(v)
 	}
 
-	// 执行向量搜索
-	chunks, err := t.store.Chunk().VectorSearch(ctx, args.KnowledgeBaseID, embedding32, args.TopK)
+	// 执行向量搜索（使用 EmbeddingStore）
+	embeddingResults, err := t.store.Embedding().VectorSearch(ctx, args.KnowledgeBaseID, embedding32, args.TopK)
 	if err != nil {
 		return "", fmt.Errorf("failed to search knowledge base: %w", err)
 	}
 
 	// 格式化结果
-	result := t.formatResults(chunks)
+	result := t.formatEmbeddingResults(embeddingResults)
 	return result, nil
 }
 
-// formatResults 格式化搜索结果.
-func (t *KnowledgeSearch) formatResults(chunks []*model.ChunkM) string {
-	if len(chunks) == 0 {
+// formatEmbeddingResults 格式化搜索结果.
+func (t *KnowledgeSearch) formatEmbeddingResults(embeddings []*model.EmbeddingM) string {
+	if len(embeddings) == 0 {
 		return "No relevant content found in the knowledge base."
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d relevant items:\n\n", len(chunks)))
-	for i, chunk := range chunks {
-		sb.WriteString(fmt.Sprintf("[%d] %s\n", i+1, chunk.Content))
-		// Optional: add more information
+	sb.WriteString(fmt.Sprintf("Found %d relevant items:\n\n", len(embeddings)))
+	for i, emb := range embeddings {
+		content := ""
+		if emb.Content != nil {
+			content = *emb.Content
+		}
+		sb.WriteString(fmt.Sprintf("[%d] %s\n", i+1, content))
+		// Optional: add more information like chunk_id, knowledge_id, score
+		if emb.ChunkID != nil {
+			sb.WriteString(fmt.Sprintf("    (chunk_id: %s)\n", *emb.ChunkID))
+		}
 		sb.WriteString("\n")
 	}
 	return sb.String()

@@ -1,14 +1,9 @@
 package helper
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
-
-	"google.golang.org/grpc/metadata"
-	"k8s.io/utils/ptr"
 
 	apiv1 "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1"
 )
@@ -19,7 +14,7 @@ func ExampleCreateUserRequest() *apiv1.CreateUserRequest {
 	return &apiv1.CreateUserRequest{
 		Username: fmt.Sprintf("%d", time.Now().Unix()), // 随机生成一个单词作为用户名，并转换为小写
 		Password: "onex(#)666",                         // 设置固定密码
-		Nickname: ptr.To("阿斯温月"),                       // 设置固定昵称
+		Nickname: "阿斯温月",                               // 设置固定昵称
 		Email:    "stary99c@163.com",                   // 设置固定邮箱地址
 		Phone:    GeneratePhoneNumber(),                // 调用 GeneratePhoneNumber 随机生成一个手机号
 	}
@@ -49,21 +44,21 @@ func GeneratePhoneNumber() string {
 // - client: MiniBlogClient 客户端，用于调用登录接口
 // 返回：
 // - 一个附加了管理员 Token 的上下文对象
-func MustWithAdminToken(ctx context.Context, client apiv1.MiniBlogClient) context.Context {
-	// 使用 root 用户登录
-	loginResponse, err := client.Login(ctx, &apiv1.LoginRequest{
-		Username: "root",         // 固定的管理员用户名
-		Password: "miniblog1234", // 固定的管理员密码
-	})
-	if err != nil {
-		log.Printf("Failed to login with root account: %v", err) // 打印登录失败的错误信息
-		panic(err)                                               // 如果登录失败，直接终止程序
-	}
-	log.Printf("[Login          ] Success to login with root account") // 登录成功日志
+// func MustWithAdminToken(ctx context.Context, client apiv1.MiniBlogClient) context.Context {
+// 	// 使用 root 用户登录
+// 	loginResponse, err := client.Login(ctx, &apiv1.LoginRequest{
+// 		Username: "root",         // 固定的管理员用户名
+// 		Password: "miniblog1234", // 固定的管理员密码
+// 	})
+// 	if err != nil {
+// 		log.Printf("Failed to login with root account: %v", err) // 打印登录失败的错误信息
+// 		panic(err)                                               // 如果登录失败，直接终止程序
+// 	}
+// 	log.Printf("[Login          ] Success to login with root account") // 登录成功日志
 
-	// 创建 metadata，用于传递 Token
-	md := metadata.Pairs("Authorization", "Bearer "+loginResponse.Token)
-	// 将 metadata 附加到上下文中
-	ctx = metadata.NewOutgoingContext(ctx, md)
-	return ctx
-}
+// 	// 创建 metadata，用于传递 Token
+// 	md := metadata.Pairs("Authorization", "Bearer "+loginResponse.Token)
+// 	// 将 metadata 附加到上下文中
+// 	ctx = metadata.NewOutgoingContext(ctx, md)
+// 	return ctx
+// }

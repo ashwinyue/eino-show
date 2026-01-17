@@ -36,9 +36,7 @@ func (v *Validator) ValidateCreateAgent(ctx context.Context, rq *v1.CreateAgentR
 
 // ValidateUpdateAgent 校验更新 Agent 请求.
 func (v *Validator) ValidateUpdateAgent(ctx context.Context, rq *v1.UpdateAgentRequest) error {
-	if rq.Id == "" {
-		return errno.ErrInvalidArgument.WithMessage("agent id cannot be empty")
-	}
+	// UpdateAgentRequest 不包含 Id 字段，由路由参数提供
 	if rq.Name != nil && len(*rq.Name) > 255 {
 		return errno.ErrInvalidArgument.WithMessage("name must be less than 255 characters")
 	}

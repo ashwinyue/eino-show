@@ -5,9 +5,10 @@ package apiserver
 
 import (
 	"github.com/google/wire"
-	"github.com/onexstack/onexstack/pkg/authz"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/biz"
+	"github.com/ashwinyue/eino-show/internal/apiserver/cache"
 	"github.com/ashwinyue/eino-show/internal/apiserver/pkg/validation"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
 	ginmw "github.com/ashwinyue/eino-show/internal/pkg/middleware/gin"
@@ -20,12 +21,16 @@ func InitializeWebServer(*Config) (server.Server, error) {
 		wire.Struct(new(ServerConfig), "*"), // * 表示注入全部字段
 		wire.NewSet(store.ProviderSet, biz.ProviderSet),
 		ProvideDB, // 提供数据库实例
+		wire.NewSet(
+			ProvideRedisOrNone,
+			wire.Bind(new(redis.UniversalClient), new(*redis.Client)),
+			cache.NewRedisCache,
+		),
 		validation.ProviderSet,
 		wire.NewSet(
 			wire.Struct(new(UserRetriever), "*"),
 			wire.Bind(new(ginmw.UserRetriever), new(*UserRetriever)),
 		),
-		authz.ProviderSet,
 	)
 	return nil, nil
 }

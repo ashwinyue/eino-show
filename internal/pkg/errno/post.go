@@ -3,7 +3,7 @@ package errno
 import (
 	"net/http"
 
-	"github.com/onexstack/onexstack/pkg/errorsx"
+	"github.com/ashwinyue/eino-show/pkg/errorsx"
 )
 
 // ErrPostNotFound 表示未找到指定的博客.

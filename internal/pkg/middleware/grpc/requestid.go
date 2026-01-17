@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/onexstack/onexstack/pkg/errorsx"
+	"github.com/ashwinyue/eino-show/pkg/errorsx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 

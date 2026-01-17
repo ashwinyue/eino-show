@@ -14,7 +14,7 @@ const TableNameMCPServiceM = "mcp_services"
 
 // MCPServiceM mapped from table <mcp_services>
 type MCPServiceM struct {
-	ID             string         `gorm:"column:id;primaryKey" json:"id"`
+	ID             string         `gorm:"column:id;primaryKey;default:uuid_generate_v4()" json:"id"`
 	TenantID       int32          `gorm:"column:tenant_id;not null" json:"tenant_id"`
 	Name           string         `gorm:"column:name;not null" json:"name"`
 	Description    *string        `gorm:"column:description" json:"description"`

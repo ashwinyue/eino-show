@@ -5,7 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/onexstack/onexstack/pkg/db"
+	"github.com/ashwinyue/eino-show/pkg/db"
 	"github.com/spf13/pflag"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
@@ -179,14 +179,6 @@ func applyGeneratorOptions(g *gen.Generator) {
 
 // GenerateMiniBlogModels 为 miniblog 组件生成模型.
 func GenerateMiniBlogModels(g *gen.Generator) {
-	// Casbin 规则模型
-	g.GenerateModelAs(
-		"casbin_rule",
-		"CasbinRuleM",
-		gen.FieldRename("ptype", "PType"),
-		gen.FieldIgnore("placeholder"),
-	)
-
 	// ========== 用户系统 ==========
 
 	// 用户模型（表名: users）
@@ -201,12 +193,6 @@ func GenerateMiniBlogModels(g *gen.Generator) {
 	g.GenerateModelAs(
 		"custom_agents",
 		"CustomAgentM",
-	)
-
-	// MCP 服务模型
-	g.GenerateModelAs(
-		"mcp_services",
-		"MCPServiceM",
 	)
 
 	// ========== Session 系统 ==========
@@ -261,6 +247,12 @@ func GenerateMiniBlogModels(g *gen.Generator) {
 		"KnowledgeTagM",
 	)
 
+	// Embeddings 向量存储
+	g.GenerateModelAs(
+		"embeddings",
+		"EmbeddingM",
+	)
+
 	// ========== 租户系统 ==========
 
 	// 租户模型
@@ -273,5 +265,21 @@ func GenerateMiniBlogModels(g *gen.Generator) {
 	g.GenerateModelAs(
 		"models",
 		"LLMModelM",
+	)
+
+	// ========== MCP 系统 ==========
+
+	// MCP 服务模型
+	g.GenerateModelAs(
+		"mcp_services",
+		"MCPServiceM",
+	)
+
+	// ========== Workflow 系统 ==========
+
+	// Workflow 检查点模型（中断恢复）
+	g.GenerateModelAs(
+		"workflow_checkpoints",
+		"WorkflowCheckpointM",
 	)
 }

@@ -6,9 +6,14 @@
 
 ```
 ┌─────────────────────────────────────────────────────┐
+│  Frontend (Vue 3 + TypeScript)                      │  ← frontend/
+├─────────────────────────────────────────────────────┤
 │  Handler (HTTP/gRPC)                                 │  ← internal/apiserver/handler/
 ├─────────────────────────────────────────────────────┤
 │  Biz (业务逻辑)                                       │  ← internal/apiserver/biz/
+│    ├─ agent/     ├─ session/  ├─ knowledge/         │
+│    ├─ user/      ├─ tenant/   ├─ mcp/               │
+│    └─ model/     (按模块组织)                        │
 ├─────────────────────────────────────────────────────┤
 │  Store (数据访问)                                     │  ← internal/apiserver/store/
 ├─────────────────────────────────────────────────────┤
@@ -16,43 +21,130 @@
 └─────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────┐
-│  Agent 接口 (解耦 Eino)                               │  ← internal/pkg/agent/
-├─────────────────────────────────────────────────────┤
-│  Agent 实现 (依赖 Eino)                               │  ← internal/agent/
+│  内部基础设施 (internal/pkg/)                         │
+│  ├─ agent/      Agent 抽象与实现                     │
+│  ├─ mcp/        Model Context Protocol               │
+│  ├─ document/   文档处理                             │
+│  └─ retriever/  向量检索                             │
 └─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  公共包 (pkg/)                                       │
+│  ├─ api/        API 定义 (Protobuf)                  │
+│  ├─ server/     服务器抽象                           │
+│  ├─ db/         数据库封装                           │
+│  ├─ authn/      认证                                 │
+│  ├─ authz/      授权                                 │
+│  └─ ...         其他通用组件                         │
+└─────────────────────────────────────────────────────┘
+```
+
+## 目录结构
+
+```
+eino-show/
+├── cmd/                    # 命令行程序入口
+│   ├── mb-apiserver/       # 主服务器
+│   └── gen-gorm-model/     # GORM 模型生成器
+│
+├── internal/               # 内部代码（不对外暴露）
+│   ├── apiserver/          # API 服务器核心实现
+│   │   ├── handler/        # HTTP/gRPC 处理器
+│   │   ├── biz/            # 业务逻辑（按模块组织）
+│   │   ├── store/          # 数据访问层
+│   │   ├── model/          # GORM 数据模型
+│   │   └── pkg/            # 内部工具包
+│   └── pkg/                # 跨服务通用包
+│       ├── agent/          # Agent 抽象与实现
+│       ├── mcp/            # MCP 协议实现
+│       ├── document/       # 文档处理
+│       └── retriever/      # 向量检索
+│
+├── pkg/                    # 公共包（可被外部引用）
+│   ├── api/                # Protobuf API 定义
+│   ├── server/             # 服务器抽象
+│   ├── db/                 # 数据库封装
+│   ├── authn/              # 认证
+│   ├── authz/              # 授权
+│   └── ...                 # 其他通用组件
+│
+├── frontend/               # Vue 3 前端项目
+│   ├── src/
+│   │   ├── api/            # API 接口
+│   │   ├── components/     # 组件
+│   │   ├── views/          # 页面视图
+│   │   └── stores/         # 状态管理
+│   └── package.json
+│
+├── api/                    # API 规范（OpenAPI）
+├── configs/                # 配置文件
+├── scripts/                # 脚本工具
+├── docs/                   # 项目文档
+└── a-old/                  # 旧代码参考（WeKnora、Eino 示例）
 ```
 
 ## 代码规范
 
-### 依赖注入
-- 使用 Wire 进行依赖注入
-- 构造函数命名：`New{TypeName}`
-- ProviderSet 声明在各自包中，统一在 `wire.go` 聚合
+### 分层架构
 
-### 分层规则
-| 层 | 职责 | 依赖 |
-|---|------|------|
-| Handler | 请求路由、参数校验、DTO转换 | → Biz |
-| Biz | 业务逻辑、事务管理 | → Store + Agent接口 |
-| Store | 数据 CRUD | → Model |
-| Model | 数据模型定义 | 无 |
+| 层 | 职责 | 目录 | 依赖 |
+|---|------|------|------|
+| Handler | 请求路由、参数校验、DTO转换 | `handler/http/`, `handler/grpc/` | → Biz |
+| Biz | 业务逻辑、事务管理 | `biz/*模块*/` | → Store + Agent接口 |
+| Store | 数据 CRUD | `store/` | → Model |
+| Model | 数据模型定义 | `model/` | 无 |
+
+### 模块化 Biz 层
+
+业务层按领域模块组织，每个模块独立包：
+
+```
+internal/apiserver/biz/
+├── biz.go              # IBiz 接口聚合
+├── agent/              # Agent 业务逻辑
+│   └── agent.go
+├── session/            # Session 业务逻辑
+│   ├── session.go
+│   └── context.go
+├── knowledge/          # 知识库业务逻辑
+│   ├── kb.go
+│   ├── document.go
+│   └── search.go
+├── user/               # 用户业务逻辑
+├── tenant/             # 租户业务逻辑
+├── mcp/                # MCP 业务逻辑
+└── model/              # 模型业务逻辑
+```
 
 ### 命名规范
-- Model 后缀: `*M` (如 `SessionM`)
-- 接口: `I{名}` (如 `IBiz`, `IStore`)
-- 生成文件: `*.gen.go`
-- Wire 生成: `wire_gen.go`
+
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| Model | `*M` 后缀 | `SessionM`, `UserM` |
+| Store 接口 | `*Store` 后缀 | `SessionStore`, `UserStore` |
+| Biz 接口 | `*Biz` 后缀 | `SessionBiz`, `AgentBiz` |
+| 顶层接口 | `I` 前缀 | `IBiz`, `IStore` |
+| 生成文件 | `.gen.go` 后缀 | `session.gen.go` |
+| Wire 生成 | `_gen.go` 后缀 | `wire_gen.go` |
+| 实现类型 | 小写 | `type sessionStore struct{}` |
 
 ### 导入顺序
+
 ```go
 import (
-    // 标准库
+    // 1. 标准库
     "context"
+    "time"
 
-    // 项目内部
-    "github.com/ashwinyue/eino-show/internal/..."
+    // 2. Eino 框架
+    "github.com/cloudwego/eino/components/agent"
+    "github.com/cloudwego/eino/components/tool"
 
-    // 第三方库
+    // 3. 项目内部
+    "github.com/ashwinyue/eino-show/internal/apiserver/model"
+    "github.com/ashwinyue/eino-show/internal/pkg/agent"
+
+    // 4. 其他第三方库
     "github.com/gin-gonic/gin"
     "github.com/google/wire"
 )
@@ -63,12 +155,11 @@ import (
 | Phase | 状态 | 说明 |
 |-------|------|------|
 | Phase 1 | ✅ | 基础设施 (Wire/Gin/GORM/日志) |
-| Phase 2 | 🚧 | 数据层: Session/Agent/Knowledge Model + Store |
-| Phase 3 | ⏳ | Agent 抽象层: internal/pkg/agent/ |
-| Phase 4 | ⏳ | Eino Agent 实现: internal/agent/ |
-| Phase 5 | ⏳ | 业务层: Biz 实现 |
-| Phase 6 | ⏳ | HTTP 层: Handler + SSE |
-| Phase 7 | ⏳ | 测试与优化 |
+| Phase 2 | ✅ | 数据层: Session/Agent/Knowledge Model + Store |
+| Phase 3 | ✅ | Eino Agent 实现 |
+| Phase 4 | ✅ | 业务层: Biz 实现 |
+| Phase 5 | ✅ | HTTP 层: Handler + SSE |
+| Phase 6 | ⏳ | 前端集成与测试优化 |
 
 详细计划: `docs/plan/重构计划.md`
 
@@ -83,20 +174,73 @@ import (
    - custom_agents, knowledge_bases, knowledges, chunks
    - users, tenants
 
-3. **Agent 解耦** - Biz 层依赖 `internal/pkg/agent/Agent` 接口，不直接依赖 Eino
+3. **Agent 解耦** - Biz 层依赖 `internal/pkg/agent/` 接口，不直接依赖 Eino
 
 ## 常用命令
 
+### 开发环境
+
 ```bash
-make build BINS=mb-apiserver   # 编译
-make test                       # 迋试
-make lint                       # 代码检查
-wire ./internal/apiserver       # 生成依赖注入代码
+# 启动基础设施 (PostgreSQL + Redis)
+make dev-start
+
+# 启动后端应用（热重载）
+make dev-app
+
+# 启动前端开发服务器
+make dev-frontend
+
+# 查看服务状态
+make dev-status
+
+# 查看日志
+make dev-logs
+
+# 停止服务
+make dev-stop
 ```
+
+### 构建相关
+
+```bash
+# 编译后端
+make build              # 输出到 bin/es-apiserver
+
+# 快速编译检查
+go build ./cmd/mb-apiserver/...
+go build ./internal/apiserver/...
+```
+
+### 代码生成
+
+```bash
+# Wire 依赖注入
+make wire
+
+# Proto 代码生成
+make gen.protoc
+
+# GORM 模型生成
+go run cmd/gen-gorm-model/gen_gorm_model.go
+```
+
+### 代码质量
+
+```bash
+make test               # 运行测试
+make lint               # 代码检查
+make fmt                # 格式化代码
+```
+
+## 编译规则
+
+- **后端输出目录**: `bin/`
+- **前端开发端口**: `http://localhost:5173`
+- **API 服务端口**: `5555` (HTTP), `6666` (gRPC)
 
 ## 当前任务
 
-参考 `docs/plan/重构计划.md` 中 Phase 2 任务清单。
+参考 `docs/plan/重构计划.md` 中 Phase 6 任务清单。
 
 ## 开发参考
 

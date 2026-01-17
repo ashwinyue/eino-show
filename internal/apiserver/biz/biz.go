@@ -1,68 +1,111 @@
 package biz
 
-//go:generate mockgen -destination mock_biz.go -package biz github.com/ashwinyue/eino-show/internal/apiserver/biz IBiz
-
 import (
+	"context"
+	"encoding/json"
+	"sync"
+
 	"github.com/google/wire"
-	"github.com/onexstack/onexstack/pkg/authz"
+	"github.com/redis/go-redis/v9"
 
-	agentv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/agent"
-	knowledgev1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/knowledge"
-	sessionv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/session"
-	userv1 "github.com/ashwinyue/eino-show/internal/apiserver/biz/v1/user"
-
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/agent"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/faq"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/knowledge"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/mcp"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/model"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/session"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/tenant"
+	"github.com/ashwinyue/eino-show/internal/apiserver/biz/user"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
+	agentmodel "github.com/ashwinyue/eino-show/internal/pkg/agent/model"
 )
 
-// ProviderSet 是一个 Wire 的 Provider 集合，用于声明依赖注入的规则.
-// 包含 NewBiz 构造函数，用于生成 biz 实例.
-// wire.Bind 用于将接口 IBiz 与具体实现 *biz 绑定，
-// 这样依赖 IBiz 的地方会自动注入 *biz 实例.
-var ProviderSet = wire.NewSet(NewBiz, wire.Bind(new(IBiz), new(*biz)))
+// ProviderSet 是一个 Wire 的 Provider 集合.
+var ProviderSet = wire.NewSet(NewBiz)
 
 // IBiz 定义了业务层需要实现的方法.
 type IBiz interface {
-	// UserV1 获取用户业务接口.
-	UserV1() userv1.UserBiz
-
-	// SessionV1 获取会话业务接口.
-	SessionV1() sessionv1.SessionBiz
-	// AgentV1 获取 Agent 业务接口.
-	AgentV1() agentv1.AgentBiz
-	// KnowledgeV1 获取知识库业务接口.
-	KnowledgeV1() knowledgev1.KnowledgeBiz
+	User() user.UserBiz
+	Tenant() tenant.TenantBiz
+	Session() session.SessionBiz
+	Agent() agent.AgentBiz
+	Knowledge() knowledge.KnowledgeBiz
+	MCP() mcp.MCPBiz
+	Model() model.ModelBiz
+	FAQ() faq.FAQBiz
 }
 
-// biz 是 IBiz 的一个具体实现.
 type biz struct {
-	store store.IStore
-	authz *authz.Authz
+	store       store.IStore
+	redisClient *redis.Client
+
+	// 懒加载的 Session Biz (增强模式)
+	sessionBiz     session.SessionBiz
+	sessionBizOnce sync.Once
 }
 
-// 确保 biz 实现了 IBiz 接口.
 var _ IBiz = (*biz)(nil)
 
-// NewBiz 创建一个 IBiz 类型的实例.
-func NewBiz(store store.IStore, authz *authz.Authz) *biz {
-	return &biz{store: store, authz: authz}
+// NewBiz 创建业务层实例 (redisClient 可为 nil).
+func NewBiz(store store.IStore, redisClient *redis.Client) IBiz {
+	return &biz{store: store, redisClient: redisClient}
 }
 
-// UserV1 返回一个实现了 UserBiz 接口的实例.
-func (b *biz) UserV1() userv1.UserBiz {
-	return userv1.New(b.store, b.authz)
+func (b *biz) User() user.UserBiz       { return user.New(b.store) }
+func (b *biz) Tenant() tenant.TenantBiz { return tenant.New(b.store) }
+
+func (b *biz) Session() session.SessionBiz {
+	b.sessionBizOnce.Do(func() {
+		ctx := context.Background()
+
+		// 优先从数据库获取默认 chat 模型配置
+		chatModelConfig := b.getDefaultChatModelConfig(ctx)
+
+		// 尝试使用增强配置创建 SessionBiz
+		cfg := &session.SessionConfig{
+			Store:           b.store,
+			RedisClient:     b.redisClient,
+			ChatModelConfig: chatModelConfig,
+			EnableEnhanced:  true, // 启用增强模式
+		}
+		sessionBiz, err := session.NewSessionBizWithConfig(ctx, cfg)
+		if err != nil {
+			// 回退到基础模式
+			b.sessionBiz = session.NewWithRedis(b.store, b.redisClient)
+		} else {
+			b.sessionBiz = sessionBiz
+		}
+	})
+	return b.sessionBiz
 }
 
-// SessionV1 返回一个实现了 SessionBiz 接口的实例.
-func (b *biz) SessionV1() sessionv1.SessionBiz {
-	return sessionv1.New(b.store)
+// getDefaultChatModelConfig 获取默认 ChatModel 配置
+// 优先从数据库获取，失败则回退到环境变量
+func (b *biz) getDefaultChatModelConfig(ctx context.Context) *agentmodel.Config {
+	// 尝试从数据库获取默认 chat 模型
+	dbModel, err := b.store.Model().GetDefault(ctx, "chat")
+	if err == nil && dbModel != nil {
+		// 解析 Parameters JSON
+		var params agentmodel.ModelParameters
+		if dbModel.Parameters != "" && dbModel.Parameters != "{}" {
+			_ = json.Unmarshal([]byte(dbModel.Parameters), &params)
+		}
+
+		// 从数据库模型构建配置
+		return &agentmodel.Config{
+			Provider: dbModel.Source,
+			Model:    dbModel.Name,
+			APIKey:   params.APIKey,
+			BaseURL:  params.BaseURL,
+		}
+	}
+
+	// 回退到环境变量配置
+	return agentmodel.DefaultConfig()
 }
 
-// AgentV1 返回一个实现了 AgentBiz 接口的实例.
-func (b *biz) AgentV1() agentv1.AgentBiz {
-	return agentv1.New(b.store)
-}
-
-// KnowledgeV1 返回一个实现了 KnowledgeBiz 接口的实例.
-func (b *biz) KnowledgeV1() knowledgev1.KnowledgeBiz {
-	return knowledgev1.New(b.store)
-}
+func (b *biz) Agent() agent.AgentBiz             { return agent.New(b.store) }
+func (b *biz) Knowledge() knowledge.KnowledgeBiz { return knowledge.New(b.store) }
+func (b *biz) MCP() mcp.MCPBiz                   { return mcp.New(b.store) }
+func (b *biz) Model() model.ModelBiz             { return model.New(b.store) }
+func (b *biz) FAQ() faq.FAQBiz                   { return faq.New(b.store) }

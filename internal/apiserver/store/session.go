@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 
-	genericstore "github.com/onexstack/onexstack/pkg/store"
-	"github.com/onexstack/onexstack/pkg/store/where"
+	genericstore "github.com/ashwinyue/eino-show/pkg/store"
+	"github.com/ashwinyue/eino-show/pkg/store/where"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/model"
 )
@@ -62,4 +62,16 @@ func (s *sessionStore) GetByAgentID(ctx context.Context, agentID string) ([]*mod
 		Order("created_at DESC").
 		Find(&list).Error
 	return list, err
+}
+
+// List 覆盖通用 Store 的 List 方法，按 created_at 降序排序.
+func (s *sessionStore) List(ctx context.Context, opts *where.Options) (int64, []*model.SessionM, error) {
+	var list []*model.SessionM
+	db := s.store.DB(ctx)
+	if opts != nil {
+		db = opts.Where(db)
+	}
+	var count int64
+	err := db.Order("created_at DESC").Find(&list).Offset(-1).Limit(-1).Count(&count).Error
+	return count, list, err
 }

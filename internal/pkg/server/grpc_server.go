@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	genericoptions "github.com/onexstack/onexstack/pkg/options"
+	genericoptions "github.com/ashwinyue/eino-show/pkg/options"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"

@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 
-	"github.com/onexstack/onexstack/pkg/token"
+	"github.com/ashwinyue/eino-show/pkg/token"
 	"google.golang.org/grpc"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/model"

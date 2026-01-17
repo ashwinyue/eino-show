@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 
-	genericstore "github.com/onexstack/onexstack/pkg/store"
-	"github.com/onexstack/onexstack/pkg/store/where"
+	genericstore "github.com/ashwinyue/eino-show/pkg/store"
+	"github.com/ashwinyue/eino-show/pkg/store/where"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/model"
 )

@@ -41,8 +41,8 @@ type Config struct {
 
 // DashScope 专用常量
 const (
-	DashScopeProvider    = "dashscope"
-	DashScopeBaseURL     = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	DashScopeProvider     = "dashscope"
+	DashScopeBaseURL      = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	DashScopeDefaultModel = "qwen-turbo"
 )
 
@@ -202,8 +202,8 @@ func NewDefaultChatModel(ctx context.Context) (model.ChatModel, error) {
 
 // ModelParameters 数据库存储的模型参数.
 type ModelParameters struct {
-	APIKey     string              `json:"api_key"`
-	BaseURL    string              `json:"base_url"`
+	APIKey      string            `json:"api_key"`
+	BaseURL     string            `json:"base_url"`
 	ExtraConfig map[string]string `json:"extra_config"`
 }
 
@@ -222,13 +222,15 @@ func NewChatModelFromDB(ctx context.Context, modelName, modelSource string, para
 	var baseURL string
 
 	switch modelSource {
-	case "aliyun", "dashscope", "DashScope", "Aliyun":
+	case "aliyun", "dashscope", "DashScope", "Aliyun", "MODEL_SOURCE_ZHIPU", "zhipu":
 		provider = DashScopeProvider
 		baseURL = DashScopeBaseURL
 	case "openai", "OpenAI":
-			provider = "openai"
+		provider = "openai"
 	case "ark", "Ark":
 		provider = "ark"
+	case "deepseek", "DeepSeek", "MODEL_SOURCE_DEEPSEEK":
+		provider = "openai" // DeepSeek 使用 OpenAI 兼容接口
 	default:
 		return nil, fmt.Errorf("unsupported model source: %s", modelSource)
 	}
@@ -238,7 +240,7 @@ func NewChatModelFromDB(ctx context.Context, modelName, modelSource string, para
 		Provider: provider,
 		Model:    modelName,
 		APIKey:   params.APIKey,
-		BaseURL: baseURL,
+		BaseURL:  baseURL,
 	}
 
 	// 如果数据库中有自定义 BaseURL，使用它

@@ -3,7 +3,7 @@ package validation
 import (
 	"context"
 
-	genericvalidation "github.com/onexstack/onexstack/pkg/validation"
+	genericvalidation "github.com/ashwinyue/eino-show/pkg/validation"
 
 	"github.com/ashwinyue/eino-show/internal/pkg/contextx"
 	"github.com/ashwinyue/eino-show/internal/pkg/errno"
@@ -59,15 +59,30 @@ func (v *Validator) ValidateUserRules() genericvalidation.Rules {
 	}
 }
 
-// ValidateLoginRequest 校验修改密码请求.
+// ValidateLoginRequest 校验登录请求（对齐 WeKnora，使用 email 登录）.
 func (v *Validator) ValidateLoginRequest(ctx context.Context, rq *apiv1.LoginRequest) error {
-	return genericvalidation.ValidateAllFields(rq, v.ValidateUserRules())
+	// email 必须提供
+	if rq.Email == "" {
+		return errno.ErrInvalidArgument.WithMessage("email is required")
+	}
+
+	// password 必须提供
+	if rq.Password == "" {
+		return errno.ErrInvalidArgument.WithMessage("password is required")
+	}
+
+	// 验证 email 格式
+	if err := isValidEmail(rq.Email); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ValidateChangePasswordRequest 校验 ChangePasswordRequest 结构体的有效性.
 func (v *Validator) ValidateChangePasswordRequest(ctx context.Context, rq *apiv1.ChangePasswordRequest) error {
-	if rq.GetUserID() != contextx.UserID(ctx) {
-		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.GetUserID())
+	if rq.UserID != contextx.UserID(ctx) {
+		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.UserID)
 	}
 	return genericvalidation.ValidateAllFields(rq, v.ValidateUserRules())
 }
@@ -79,8 +94,8 @@ func (v *Validator) ValidateCreateUserRequest(ctx context.Context, rq *apiv1.Cre
 
 // ValidateUpdateUserRequest 校验更新用户请求.
 func (v *Validator) ValidateUpdateUserRequest(ctx context.Context, rq *apiv1.UpdateUserRequest) error {
-	if rq.GetUserID() != contextx.UserID(ctx) {
-		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.GetUserID())
+	if rq.UserID != contextx.UserID(ctx) {
+		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.UserID)
 	}
 	return genericvalidation.ValidateSelectedFields(rq, v.ValidateUserRules(), "UserID")
 }
@@ -92,13 +107,13 @@ func (v *Validator) ValidateDeleteUserRequest(ctx context.Context, rq *apiv1.Del
 
 // ValidateGetUserRequest 校验 GetUserRequest 结构体的有效性.
 func (v *Validator) ValidateGetUserRequest(ctx context.Context, rq *apiv1.GetUserRequest) error {
-	if rq.GetUserID() != contextx.UserID(ctx) {
-		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.GetUserID())
+	if rq.UserID != contextx.UserID(ctx) {
+		return errno.ErrPermissionDenied.WithMessage("The logged-in user `%s` does not match request user `%s`", contextx.UserID(ctx), rq.UserID)
 	}
 	return genericvalidation.ValidateAllFields(rq, v.ValidateUserRules())
 }
 
-// ValidateListUserRequest 校验 ListUserRequest 结构体的有效性.
-func (v *Validator) ValidateListUserRequest(ctx context.Context, rq *apiv1.ListUserRequest) error {
+// ValidateListUserRequest 校验 ListUsersRequest 结构体的有效性.
+func (v *Validator) ValidateListUserRequest(ctx context.Context, rq *apiv1.ListUsersRequest) error {
 	return genericvalidation.ValidateAllFields(rq, v.ValidateUserRules())
 }

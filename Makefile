@@ -1,4 +1,4 @@
-.PHONY: help build run test clean fmt lint deps wire gen.protoc dev-start dev-stop dev-restart dev-logs dev-status dev-app
+.PHONY: help build run test clean fmt lint deps wire gen.protoc dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend
 
 # Show help
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "  dev-logs          查看开发环境日志"
 	@echo "  dev-status        查看开发环境状态"
 	@echo "  dev-app           启动后端应用（本地运行，需先运行 dev-start）"
+	@echo "  dev-frontend      启动前端开发服务器（本地运行，需先运行 dev-start）"
 
 # Go 相关变量
 BINARY_NAME=es-apiserver
@@ -92,3 +93,7 @@ dev-status:
 # 开发环境 - 启动后端应用
 dev-app:
 	./scripts/dev.sh app
+
+# 开发环境 - 启动前端
+dev-frontend:
+	./scripts/dev.sh frontend

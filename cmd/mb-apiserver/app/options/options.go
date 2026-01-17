@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	genericoptions "github.com/onexstack/onexstack/pkg/options"
-	stringsutil "github.com/onexstack/onexstack/pkg/util/strings"
+	genericoptions "github.com/ashwinyue/eino-show/pkg/options"
+	stringsutil "github.com/ashwinyue/eino-show/pkg/util/strings"
 	"github.com/spf13/pflag"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,6 +40,8 @@ type ServerOptions struct {
 	MySQLOptions *genericoptions.MySQLOptions `json:"mysql" mapstructure:"mysql"`
 	// PostgreSQLOptions 包含 PostgreSQL 配置选项.
 	PostgreSQLOptions *genericoptions.PostgreSQLOptions `json:"postgresql" mapstructure:"postgresql"`
+	// WebSearchOptions 包含 Web 搜索配置选项.
+	WebSearchOptions *genericoptions.WebSearchOptions `json:"web-search" mapstructure:"web-search"`
 }
 
 // NewServerOptions 创建带有默认值的 ServerOptions 实例.
@@ -53,6 +55,7 @@ func NewServerOptions() *ServerOptions {
 		GRPCOptions:       genericoptions.NewGRPCOptions(),
 		MySQLOptions:      genericoptions.NewMySQLOptions(),
 		PostgreSQLOptions: genericoptions.NewPostgreSQLOptions(),
+		WebSearchOptions:  genericoptions.NewWebSearchOptions(),
 	}
 	opts.HTTPOptions.Addr = ":5555"
 	opts.GRPCOptions.Addr = ":6666"
@@ -74,6 +77,7 @@ func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GRPCOptions.AddFlags(fs, "grpc")
 	o.MySQLOptions.AddFlags(fs, "mysql")
 	o.PostgreSQLOptions.AddFlags(fs, "postgresql")
+	o.WebSearchOptions.AddFlags(fs, "web-search")
 }
 
 // Validate 校验 ServerOptions 中的选项是否合法.
@@ -95,6 +99,7 @@ func (o *ServerOptions) Validate() error {
 	errs = append(errs, o.HTTPOptions.Validate()...)
 	errs = append(errs, o.MySQLOptions.Validate()...)
 	errs = append(errs, o.PostgreSQLOptions.Validate()...)
+	errs = append(errs, o.WebSearchOptions.Validate()...)
 
 	// 如果是 gRPC 或 gRPC-Gateway 模式，校验 gRPC 配置
 	if stringsutil.StringIn(o.ServerMode, []string{apiserver.GRPCServerMode, apiserver.GRPCGatewayServerMode}) {
@@ -116,5 +121,6 @@ func (o *ServerOptions) Config() (*apiserver.Config, error) {
 		GRPCOptions:       o.GRPCOptions,
 		MySQLOptions:      o.MySQLOptions,
 		PostgreSQLOptions: o.PostgreSQLOptions,
+		WebSearchOptions:  o.WebSearchOptions,
 	}, nil
 }

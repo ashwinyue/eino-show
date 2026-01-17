@@ -3,7 +3,7 @@ package gin
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/onexstack/onexstack/pkg/core"
+	"github.com/ashwinyue/eino-show/pkg/core"
 
 	"github.com/ashwinyue/eino-show/internal/pkg/contextx"
 	"github.com/ashwinyue/eino-show/internal/pkg/errno"

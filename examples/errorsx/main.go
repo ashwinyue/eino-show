@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/onexstack/onexstack/pkg/errorsx"
+	"github.com/ashwinyue/eino-show/pkg/errorsx"
 
 	"github.com/ashwinyue/eino-show/internal/pkg/errno"
 )

@@ -4,9 +4,12 @@ package chat
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+
+	"github.com/ashwinyue/eino-show/internal/pkg/trace"
 )
 
 // Config Chat Agent 配置.
@@ -65,8 +68,22 @@ func (a *Agent) Generate(ctx context.Context, messages []*schema.Message, opts .
 	// 应用配置选项
 	opts = a.applyConfigOptions(opts)
 
+	// 记录追踪日志 - 开始
+	startTime := time.Now()
+	trace.LogChatStart(len(messages))
+
 	// 调用 ChatModel 生成回复
-	return a.chatModel.Generate(ctx, messages, opts...)
+	msg, err := a.chatModel.Generate(ctx, messages, opts...)
+	if err != nil {
+		// 记录追踪日志 - 错误
+		trace.LogChatError(err, time.Since(startTime))
+		return nil, err
+	}
+
+	// 记录追踪日志 - 完成
+	trace.LogChatEnd(msg.Content, time.Since(startTime))
+
+	return msg, nil
 }
 
 // StreamGenerate 生成回复（流式）.

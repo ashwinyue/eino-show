@@ -18,8 +18,8 @@ type KnowledgeBaseM struct {
 	Name                     string         `gorm:"column:name;not null" json:"name"`
 	Description              *string        `gorm:"column:description" json:"description"`
 	TenantID                 int32          `gorm:"column:tenant_id;not null" json:"tenant_id"`
-	ChunkingConfig           string         `gorm:"column:chunking_config;not null;default:{"chunk_size": 512, "chunk_overlap": 50, "split_markers": ["\n\n", "\n", "。"], "keep_separator": true}" json:"chunking_config"`
-	ImageProcessingConfig    string         `gorm:"column:image_processing_config;not null;default:{"model_id": "", "enable_multimodal": false}" json:"image_processing_config"`
+	ChunkingConfig           string         `gorm:"column:chunking_config;not null;default:{" json:"chunking_config"`
+	ImageProcessingConfig    string         `gorm:"column:image_processing_config;not null;default:{" json:"image_processing_config"`
 	EmbeddingModelID         string         `gorm:"column:embedding_model_id;not null" json:"embedding_model_id"`
 	SummaryModelID           string         `gorm:"column:summary_model_id;not null" json:"summary_model_id"`
 	CosConfig                string         `gorm:"column:cos_config;not null;default:{}" json:"cos_config"`

@@ -14,11 +14,11 @@ const TableNameSessionItemM = "session_items"
 type SessionItemM struct {
 	ID         string     `gorm:"column:id;primaryKey;default:uuid_generate_v4()" json:"id"`
 	SessionID  string     `gorm:"column:session_id;not null" json:"session_id"`
-	Type       string     `gorm:"column:type;not null;comment:Item type: "message" (references messages.id via message_id) or "summary" (stores summary text)" json:"type"` // Item type: "message" (references messages.id via message_id) or "summary" (stores summary text)
-	MessageID  *string    `gorm:"column:message_id;comment:Foreign key reference to messages.id (used when type="message")" json:"message_id"`                              // Foreign key reference to messages.id (used when type="message")
-	Summary    *string    `gorm:"column:summary;comment:Compressed summary text (used when type="summary")" json:"summary"`                                                 // Compressed summary text (used when type="summary")
-	SortOrder  int32      `gorm:"column:sort_order;not null;comment:Order within session to maintain conversation sequence" json:"sort_order"`                              // Order within session to maintain conversation sequence
-	TokenCount *int32     `gorm:"column:token_count;comment:Estimated token count for budget management" json:"token_count"`                                                // Estimated token count for budget management
+	Type       string     `gorm:"column:type;not null;comment:Item type:" json:"type"`                                                         // Item type:
+	MessageID  *string    `gorm:"column:message_id;comment:Foreign key reference to messages.id (used when type=" json:"message_id"`           // Foreign key reference to messages.id (used when type=
+	Summary    *string    `gorm:"column:summary;comment:Compressed summary text (used when type=" json:"summary"`                              // Compressed summary text (used when type=
+	SortOrder  int32      `gorm:"column:sort_order;not null;comment:Order within session to maintain conversation sequence" json:"sort_order"` // Order within session to maintain conversation sequence
+	TokenCount *int32     `gorm:"column:token_count;comment:Estimated token count for budget management" json:"token_count"`                   // Estimated token count for budget management
 	CreatedAt  *time.Time `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt  *time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }

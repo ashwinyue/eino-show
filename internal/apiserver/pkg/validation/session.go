@@ -33,9 +33,7 @@ func (v *Validator) ValidateListSessions(ctx context.Context, rq *v1.ListSession
 
 // ValidateUpdateSession 校验更新会话请求.
 func (v *Validator) ValidateUpdateSession(ctx context.Context, rq *v1.UpdateSessionRequest) error {
-	if rq.Id == "" {
-		return errno.ErrInvalidArgument.WithMessage("session id cannot be empty")
-	}
+	// UpdateSessionRequest 不包含 Id 字段，由路由参数提供
 	if rq.Title != nil && len(*rq.Title) > 255 {
 		return errno.ErrInvalidArgument.WithMessage("title must be less than 255 characters")
 	}
@@ -46,6 +44,14 @@ func (v *Validator) ValidateUpdateSession(ctx context.Context, rq *v1.UpdateSess
 func (v *Validator) ValidateDeleteSession(ctx context.Context, rq *v1.DeleteSessionRequest) error {
 	if rq.Id == "" {
 		return errno.ErrInvalidArgument.WithMessage("session id cannot be empty")
+	}
+	return nil
+}
+
+// ValidateStopSession 校验停止会话请求.
+func (v *Validator) ValidateStopSession(ctx context.Context, rq *v1.StopSessionRequest) error {
+	if rq.MessageID == "" {
+		return errno.ErrInvalidArgument.WithMessage("message id cannot be empty")
 	}
 	return nil
 }

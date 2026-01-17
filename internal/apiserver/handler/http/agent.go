@@ -5,8 +5,38 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/onexstack/onexstack/pkg/core"
+
+	v1 "github.com/ashwinyue/eino-show/pkg/api/apiserver/v1"
 )
+
+// ===== Agent 请求/响应类型 =====
+
+// CreateAgentRequest 创建 Agent 请求
+type CreateAgentRequest struct {
+	Name        string                 `json:"name" binding:"required"`
+	Description string                 `json:"description"`
+	Avatar      string                 `json:"avatar"`
+	Config      map[string]interface{} `json:"config"`
+}
+
+// UpdateAgentRequest 更新 Agent 请求
+type UpdateAgentRequest struct {
+	Name        *string                `json:"name"`
+	Description *string                `json:"description"`
+	Avatar      *string                `json:"avatar"`
+	Config      map[string]interface{} `json:"config"`
+}
+
+// ErrorResponse 错误响应
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// DeleteResponse 删除响应
+type DeleteResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
 
 // ListAgents 获取 Agent 列表（包括内置和自定义）.
 // @Summary      获取 Agent 列表
@@ -18,7 +48,12 @@ import (
 // @Security     Bearer
 // @Router       /api/v1/custom-agents [get]
 func (h *Handler) ListAgents(c *gin.Context) {
-	core.HandleQueryRequest(c, h.biz.AgentV1().List, h.val.ValidateListAgents)
+	resp, err := h.biz.Agent().List(c.Request.Context(), nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"agents": resp.Agents, "total": resp.Total})
 }
 
 // GetAgent 获取 Agent 详情.
@@ -33,7 +68,18 @@ func (h *Handler) ListAgents(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/custom-agents/{id} [get]
 func (h *Handler) GetAgent(c *gin.Context) {
-	core.HandleUriRequest(c, h.biz.AgentV1().Get, h.val.ValidateGetAgent)
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent id is required"})
+		return
+	}
+
+	resp, err := h.biz.Agent().Get(c.Request.Context(), &v1.GetAgentRequest{Id: id})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"agent": resp})
 }
 
 // CreateAgent 创建自定义 Agent.
@@ -48,7 +94,23 @@ func (h *Handler) GetAgent(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/custom-agents [post]
 func (h *Handler) CreateAgent(c *gin.Context) {
-	core.HandleJSONRequest(c, h.biz.AgentV1().Create, h.val.ValidateCreateAgent)
+	var req CreateAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.biz.Agent().Create(c.Request.Context(), &v1.CreateAgentRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Avatar:      req.Avatar,
+		Config:      req.Config,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": resp})
 }
 
 // UpdateAgent 更新 Agent.
@@ -65,7 +127,29 @@ func (h *Handler) CreateAgent(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/custom-agents/{id} [put]
 func (h *Handler) UpdateAgent(c *gin.Context) {
-	core.HandleJSONRequest(c, h.biz.AgentV1().Update, h.val.ValidateUpdateAgent)
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent id is required"})
+		return
+	}
+
+	var req UpdateAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.biz.Agent().Update(c.Request.Context(), id, &v1.UpdateAgentRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Avatar:      req.Avatar,
+		Config:      req.Config,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": resp})
 }
 
 // DeleteAgent 删除 Agent.
@@ -80,7 +164,17 @@ func (h *Handler) UpdateAgent(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/custom-agents/{id} [delete]
 func (h *Handler) DeleteAgent(c *gin.Context) {
-	core.HandleUriRequest(c, h.biz.AgentV1().Delete, h.val.ValidateDeleteAgent)
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent id is required"})
+		return
+	}
+
+	if _, err := h.biz.Agent().Delete(c.Request.Context(), &v1.DeleteAgentRequest{Id: id}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Agent deleted successfully"})
 }
 
 // ListBuiltinAgents 获取内置 Agent 列表.
@@ -93,8 +187,89 @@ func (h *Handler) DeleteAgent(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/agents/builtin [get]
 func (h *Handler) ListBuiltinAgents(c *gin.Context) {
-	builtinAgents := h.biz.AgentV1().ListBuiltin(c.Request.Context())
+	builtinAgents := h.biz.Agent().ListBuiltin(c.Request.Context())
 	c.JSON(http.StatusOK, gin.H{
 		"agents": builtinAgents,
+	})
+}
+
+// ListAllAgents 获取所有 Agent（内置+自定义组合）.
+// @Summary      获取所有 Agent
+// @Description  获取所有 Agent，包括内置 Agent 和自定义 Agent
+// @Tags         agents
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  "Agent 列表"
+// @Security     Bearer
+// @Router       /api/v1/agents [get]
+func (h *Handler) ListAllAgents(c *gin.Context) {
+	// 获取内置 Agent
+	builtinAgents := h.biz.Agent().ListBuiltin(c.Request.Context())
+
+	// 获取自定义 Agent
+	customAgentsResp, _ := h.biz.Agent().List(c.Request.Context(), nil)
+
+	// 组合所有 Agent
+	resultAgents := []map[string]any{}
+
+	// 添加内置 Agent
+	for _, agent := range builtinAgents {
+		resultAgents = append(resultAgents, map[string]any{
+			"id":       agent.Id,
+			"name":     agent.Name,
+			"type":     "builtin",
+			"metadata": agent,
+		})
+	}
+
+	// 添加自定义 Agent
+	if customAgentsResp != nil {
+		for _, agent := range customAgentsResp.Agents {
+			resultAgents = append(resultAgents, map[string]any{
+				"id":       agent.ID,
+				"name":     agent.Name,
+				"type":     "custom",
+				"metadata": agent,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"agents": resultAgents,
+		"total":  len(resultAgents),
+	})
+}
+
+// ============================================================================
+// 扩展 Agent API (对齐 WeKnora)
+// ============================================================================
+
+// GetPlaceholders 获取 Agent 占位符定义
+// GET /api/v1/agents/placeholders
+func (h *Handler) GetPlaceholders(c *gin.Context) {
+	resp := h.biz.Agent().GetPlaceholders(c.Request.Context())
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    resp,
+	})
+}
+
+// CopyAgent 复制 Agent
+// POST /api/v1/agents/:id/copy
+func (h *Handler) CopyAgent(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent id is required"})
+		return
+	}
+
+	resp, err := h.biz.Agent().Copy(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    resp.Agent,
 	})
 }

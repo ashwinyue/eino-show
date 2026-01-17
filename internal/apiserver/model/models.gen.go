@@ -20,13 +20,13 @@ type LLMModelM struct {
 	Type        string         `gorm:"column:type;not null" json:"type"`
 	Source      string         `gorm:"column:source;not null" json:"source"`
 	Description *string        `gorm:"column:description" json:"description"`
-	Parameters  string         `gorm:"column:parameters;not null" json:"parameters"`
+	Parameters  string         `gorm:"column:parameters;not null;default:{}" json:"parameters"`
 	IsDefault   bool           `gorm:"column:is_default;not null" json:"is_default"`
 	Status      string         `gorm:"column:status;not null;default:active" json:"status"`
+	IsBuiltin   bool           `gorm:"column:is_builtin;not null" json:"is_builtin"`
 	CreatedAt   *time.Time     `gorm:"column:created_at;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt   *time.Time     `gorm:"column:updated_at;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`
-	IsBuiltin   bool           `gorm:"column:is_builtin;not null" json:"is_builtin"`
 }
 
 // TableName LLMModelM's table name

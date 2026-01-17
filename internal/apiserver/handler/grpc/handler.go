@@ -1,3 +1,4 @@
+// Package grpc 提供 gRPC 处理器.
 package grpc
 
 import (

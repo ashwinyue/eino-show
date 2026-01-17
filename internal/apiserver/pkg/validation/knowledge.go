@@ -35,9 +35,7 @@ func (v *Validator) ValidateCreateKnowledgeBase(ctx context.Context, rq *v1.Crea
 
 // ValidateUpdateKnowledgeBase 校验更新知识库请求.
 func (v *Validator) ValidateUpdateKnowledgeBase(ctx context.Context, rq *v1.UpdateKnowledgeBaseRequest) error {
-	if rq.Id == "" {
-		return errno.ErrInvalidArgument.WithMessage("knowledge base id cannot be empty")
-	}
+	// UpdateKnowledgeBaseRequest 不包含 Id 字段，由路由参数提供
 	if rq.Name != nil && len(*rq.Name) > 255 {
 		return errno.ErrInvalidArgument.WithMessage("name must be less than 255 characters")
 	}

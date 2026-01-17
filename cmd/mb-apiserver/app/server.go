@@ -1,15 +1,17 @@
 package app
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/onexstack/onexstack/pkg/core"
-	"github.com/onexstack/onexstack/pkg/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/ashwinyue/eino-show/cmd/mb-apiserver/app/options"
 	"github.com/ashwinyue/eino-show/internal/pkg/log"
+	"github.com/ashwinyue/eino-show/internal/pkg/trace"
+	"github.com/ashwinyue/eino-show/pkg/core"
+	"github.com/ashwinyue/eino-show/pkg/version"
 )
 
 var configFile string // 配置文件路径
@@ -83,6 +85,11 @@ func run(opts *options.ServerOptions) error {
 	// 初始化日志
 	log.Init(logOptions())
 	defer log.Sync() // 确保日志在退出时被刷新到磁盘
+
+	// 初始化 Coze-Loop 追踪（如果配置了环境变量）
+	ctx := context.Background()
+	trace.Init(ctx)
+	defer trace.Close(ctx)
 
 	// 将 viper 中的配置解析到 opts.
 	if err := viper.Unmarshal(opts); err != nil {

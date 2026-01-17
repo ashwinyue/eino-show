@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/onexstack/onexstack/pkg/authz"
-	genericoptions "github.com/onexstack/onexstack/pkg/options"
-	"github.com/onexstack/onexstack/pkg/store/where"
-	"github.com/onexstack/onexstack/pkg/token"
+	genericoptions "github.com/ashwinyue/eino-show/pkg/options"
+	"github.com/ashwinyue/eino-show/pkg/store/where"
+	"github.com/ashwinyue/eino-show/pkg/token"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/ashwinyue/eino-show/internal/apiserver/biz"
@@ -48,6 +48,8 @@ type Config struct {
 	GRPCOptions       *genericoptions.GRPCOptions
 	MySQLOptions      *genericoptions.MySQLOptions
 	PostgreSQLOptions *genericoptions.PostgreSQLOptions
+	RedisOptions      *genericoptions.RedisOptions
+	LLMOptions        *genericoptions.LLMOptions
 }
 
 // UnionServer 定义一个联合服务器. 根据 ServerMode 决定要启动的服务器类型.
@@ -70,7 +72,6 @@ type ServerConfig struct {
 	biz       biz.IBiz
 	val       *validation.Validator
 	retriever mw.UserRetriever
-	authz     *authz.Authz
 }
 
 // NewUnionServer 根据配置创建联合服务器.
@@ -158,6 +159,15 @@ func (r *UserRetriever) GetUser(ctx context.Context, userID string) (*model.User
 // ProvideDB 根据配置提供一个数据库实例。
 func ProvideDB(cfg *Config) (*gorm.DB, error) {
 	return cfg.NewDB()
+}
+
+// ProvideRedisOrNone 根据配置提供一个 Redis 客户端实例。
+// 如果未配置 Redis，返回 nil（允许 Redis 可选）。
+func ProvideRedisOrNone(cfg *Config) (*redis.Client, error) {
+	if cfg.RedisOptions == nil || cfg.RedisOptions.Addr == "" {
+		return nil, nil // Redis 未配置，返回 nil
+	}
+	return cfg.RedisOptions.NewClient()
 }
 
 func NewWebServer(serverMode string, serverConfig *ServerConfig) (server.Server, error) {

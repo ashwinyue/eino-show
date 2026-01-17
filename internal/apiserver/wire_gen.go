@@ -8,10 +8,10 @@ package apiserver
 
 import (
 	"github.com/ashwinyue/eino-show/internal/apiserver/biz"
+	"github.com/ashwinyue/eino-show/internal/apiserver/cache"
 	"github.com/ashwinyue/eino-show/internal/apiserver/pkg/validation"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
 	"github.com/ashwinyue/eino-show/internal/pkg/server"
-	"github.com/onexstack/onexstack/pkg/authz"
 )
 
 // Injectors from wire.go:
@@ -22,23 +22,22 @@ func InitializeWebServer(config *Config) (server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	datastore := store.NewStore(db)
-	v := authz.DefaultOptions()
-	authzAuthz, err := authz.NewAuthz(db, v...)
+	client, err := ProvideRedisOrNone(config)
 	if err != nil {
 		return nil, err
 	}
-	bizBiz := biz.NewBiz(datastore, authzAuthz)
+	_ = cache.NewRedisCache(client) // 缓存实例，后续可注入到需要的地方
+	datastore := store.NewStore(db)
+	iBiz := biz.NewBiz(datastore, client) // 传入 Redis client 用于 LLM Context 存储
 	validator := validation.New(datastore)
 	userRetriever := &UserRetriever{
 		store: datastore,
 	}
 	serverConfig := &ServerConfig{
 		cfg:       config,
-		biz:       bizBiz,
+		biz:       iBiz,
 		val:       validator,
 		retriever: userRetriever,
-		authz:     authzAuthz,
 	}
 	serverServer, err := NewWebServer(string2, serverConfig)
 	if err != nil {

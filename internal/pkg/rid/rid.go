@@ -1,7 +1,7 @@
 package rid
 
 import (
-	"github.com/onexstack/onexstack/pkg/id"
+	"github.com/ashwinyue/eino-show/pkg/id"
 )
 
 const defaultABC = "abcdefghijklmnopqrstuvwxyz1234567890"

@@ -1,11 +1,13 @@
 package store
 
-//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,AuthTokenStore,ModelStore
+//go:generate mockgen -destination mock_store.go -package store github.com/ashwinyue/eino-show/internal/apiserver/store IStore,UserStore,SessionStore,CustomAgentStore,KnowledgeBaseStore,KnowledgeStore,ChunkStore,ChunkExpansion,AuthTokenStore,ModelStore,MCPServiceStore,EmbeddingStore
 
 import (
 	"context"
 	"sync"
 
+	"github.com/ashwinyue/eino-show/internal/pkg/llmcontext"
+	"github.com/ashwinyue/eino-show/pkg/store/where"
 	"github.com/google/wire"
 	"gorm.io/gorm"
 )
@@ -29,13 +31,22 @@ type IStore interface {
 	TX(ctx context.Context, fn func(ctx context.Context) error) error
 
 	User() UserStore
+	Tenant() TenantStore
 	Session() SessionStore
+	Message() MessageStore
 	CustomAgent() CustomAgentStore
 	KnowledgeBase() KnowledgeBaseStore
 	Knowledge() KnowledgeStore
 	Chunk() ChunkStore
 	AuthToken() AuthTokenStore
 	Model() ModelStore
+	MCPService() MCPServiceStore
+	Embedding() EmbeddingStore
+	KnowledgeTag() KnowledgeTagStore
+	WorkflowCheckpoint() WorkflowCheckpointStore
+	Summary() SummaryStore
+	FAQ() FAQStore
+	ContextStorage() llmcontext.ContextStorage
 }
 
 // transactionKey 用于在 context.Context 中存储事务上下文的键.
@@ -56,7 +67,9 @@ var _ IStore = (*datastore)(nil)
 func NewStore(db *gorm.DB) *datastore {
 	// 确保 S 只被初始化一次
 	once.Do(func() {
-		S = &datastore{db}
+		S = &datastore{
+			core: db,
+		}
 	})
 
 	return S
@@ -94,9 +107,19 @@ func (store *datastore) User() UserStore {
 	return newUserStore(store)
 }
 
+// Tenant 返回一个实现了 TenantStore 接口的实例.
+func (store *datastore) Tenant() TenantStore {
+	return newTenantStore(store)
+}
+
 // Session 返回一个实现了 SessionStore 接口的实例.
 func (store *datastore) Session() SessionStore {
 	return newSessionStore(store)
+}
+
+// Message 返回一个实现了 MessageStore 接口的实例.
+func (store *datastore) Message() MessageStore {
+	return newMessageStore(store)
 }
 
 // CustomAgent 返回一个实现了 CustomAgentStore 接口的实例.
@@ -127,4 +150,39 @@ func (store *datastore) AuthToken() AuthTokenStore {
 // Model 返回一个实现了 ModelStore 接口的实例.
 func (store *datastore) Model() ModelStore {
 	return newModelStore(store)
+}
+
+// MCPService 返回一个实现了 MCPServiceStore 接口的实例.
+func (store *datastore) MCPService() MCPServiceStore {
+	return newMCPServiceStore(store)
+}
+
+// Embedding 返回一个实现了 EmbeddingStore 接口的实例.
+func (store *datastore) Embedding() EmbeddingStore {
+	return newEmbeddingStore(store)
+}
+
+// KnowledgeTag 返回一个实现了 KnowledgeTagStore 接口的实例.
+func (store *datastore) KnowledgeTag() KnowledgeTagStore {
+	return newKnowledgeTagStore(store)
+}
+
+// WorkflowCheckpoint 返回一个实现了 WorkflowCheckpointStore 接口的实例.
+func (store *datastore) WorkflowCheckpoint() WorkflowCheckpointStore {
+	return newWorkflowCheckpointStore(store)
+}
+
+// Summary 返回一个实现了 SummaryStore 接口的实例.
+func (store *datastore) Summary() SummaryStore {
+	return newSummaryStore(store)
+}
+
+// FAQ 返回一个实现了 FAQStore 接口的实例.
+func (store *datastore) FAQ() FAQStore {
+	return newFAQStore(store)
+}
+
+// ContextStorage 返回一个实现了 ContextStorage 接口的实例.
+func (store *datastore) ContextStorage() llmcontext.ContextStorage {
+	return newDBContextStorage(store)
 }
