@@ -2,6 +2,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -14,11 +15,22 @@ import (
 
 // ===== Session 请求/响应类型（对齐 WeKnora）=====
 
-// CreateSessionRequest 创建会话请求
+// SessionAgentConfig 会话级别的 Agent 配置（对齐 WeKnora 前端）
+type SessionAgentConfig struct {
+	Enabled        bool     `json:"enabled"`
+	MaxIterations  int      `json:"max_iterations"`
+	Temperature    float64  `json:"temperature"`
+	KnowledgeBases []string `json:"knowledge_bases"`
+	KnowledgeIDs   []string `json:"knowledge_ids"`
+	AllowedTools   []string `json:"allowed_tools"`
+}
+
+// CreateSessionRequest 创建会话请求（对齐 WeKnora 前端）
 type CreateSessionRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	AgentID     string `json:"agent_id"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	AgentID     string              `json:"agent_id"`
+	AgentConfig *SessionAgentConfig `json:"agent_config"` // 前端发送的 agent 配置
 }
 
 // SessionResponse 会话响应
@@ -111,10 +123,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"data":    resp.Session,
-	})
+	c.JSON(http.StatusCreated, resp)
 }
 
 // GetSession 获取会话详情（对齐 WeKnora GET /sessions/:id）
@@ -131,10 +140,7 @@ func (h *Handler) GetSession(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    resp.Session,
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 // ListSessions 获取会话列表（对齐 WeKnora GET /sessions）
@@ -145,13 +151,7 @@ func (h *Handler) ListSessions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":   true,
-		"data":      resp.Sessions,
-		"total":     resp.Total,
-		"page":      1,
-		"page_size": len(resp.Sessions),
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateSession 更新会话（对齐 WeKnora PUT /sessions/:id）
@@ -177,10 +177,7 @@ func (h *Handler) UpdateSession(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    resp.Session,
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 // DeleteSession 删除会话（对齐 WeKnora DELETE /sessions/:id）
@@ -359,7 +356,7 @@ func (h *Handler) SearchKnowledge(c *gin.Context) {
 	}
 
 	// 调用 biz 层搜索知识
-	results, err := h.biz.Session().SearchKnowledge(c.Request.Context(), "", &v1.SearchKnowledgeRequest{
+	results, err := h.biz.Session().SearchKnowledge(c.Request.Context(), "", &v1.CreateKnowledgeQARequest{
 		Query:            req.Query,
 		KnowledgeBaseIDs: kbIDs,
 	})
@@ -389,15 +386,26 @@ func (h *Handler) streamQAWithOptions(c *gin.Context, sessionID string, req Crea
 	h.streamQAWithADK(c, sessionID, req)
 }
 
-// streamQAWithADK 使用 ADK Agent 的流式问答
+// streamQAWithADK 使用 ADK Agent 的流式问答（对齐 WeKnora 实现）
 func (h *Handler) streamQAWithADK(c *gin.Context, sessionID string, req CreateKnowledgeQARequest) {
-	// 获取 ADK Agent
-	result, err := h.biz.Session().GetADKAgent(c.Request.Context(), sessionID, &v1.CreateKnowledgeQARequest{
+	ctx := c.Request.Context()
+	requestID := c.GetHeader("X-Request-ID")
+
+	// 1. 保存用户消息（对齐 WeKnora helpers.go createUserMessage）
+	if _, err := h.biz.Session().SaveMessage(ctx, sessionID, "user", req.Query, requestID); err != nil {
+		c.Header("Content-Type", "text/event-stream")
+		c.SSEvent("error", map[string]string{"error": "failed to save user message"})
+		return
+	}
+
+	// 2. 获取 ADK Runner 和消息（Eino ADK 标准方式）
+	runnerInterface, messageID, messages, err := h.biz.Session().GetADKRunner(ctx, sessionID, &v1.CreateKnowledgeQARequest{
 		Query:            req.Query,
 		KnowledgeBaseIDs: req.KnowledgeBaseIDs,
 		KnowledgeIDs:     req.KnowledgeIDs,
 		AgentEnabled:     true, // 统一使用 Agent 模式
 		SummaryModelID:   req.SummaryModelID,
+		WebSearchEnabled: req.WebSearchEnabled,
 	})
 	if err != nil {
 		c.Header("Content-Type", "text/event-stream")
@@ -405,13 +413,45 @@ func (h *Handler) streamQAWithADK(c *gin.Context, sessionID string, req CreateKn
 		return
 	}
 
+	// 3. 创建助手消息（对齐 WeKnora helpers.go createAssistantMessage，初始 is_completed=false）
+	assistantMsg, err := h.biz.Session().SaveMessage(ctx, sessionID, "assistant", "", messageID)
+	if err != nil {
+		c.Header("Content-Type", "text/event-stream")
+		c.SSEvent("error", map[string]string{"error": "failed to create assistant message"})
+		return
+	}
+
+	// 类型断言
+	runner, ok := runnerInterface.(*adk.Runner)
+	if !ok {
+		c.Header("Content-Type", "text/event-stream")
+		c.SSEvent("error", map[string]string{"error": "invalid runner type"})
+		return
+	}
+
 	// 转换消息格式
 	var adkMessages []adk.Message
-	for _, msg := range result.Messages {
+	for _, msg := range messages {
 		adkMessages = append(adkMessages, msg)
 	}
 
-	// 使用 ADK SSE Handler 处理
-	sseHandler := NewADKSSEHandler(result.Agent, result.SessionID, result.MessageID)
-	sseHandler.HandleStream(c, adkMessages)
+	// 4. 异步生成会话标题（对齐 WeKnora：流开始时并行执行）
+	// 使用 channel 接收生成的标题，以便在 stop 事件前发送
+	var titleChan chan string
+	if !req.DisableTitle {
+		titleChan = make(chan string, 1)
+		go func() {
+			title := h.biz.Session().GenerateTitleSync(context.Background(), sessionID, req.Query)
+			titleChan <- title
+		}()
+	}
+
+	// 使用 ADK SSE Handler 处理，传入 assistantMsg.ID 用于更新
+	// 创建更新消息的回调函数
+	updateFn := func(ctx context.Context, messageID, content string, agentSteps []v1.AgentStep, isCompleted bool) error {
+		return h.biz.Session().UpdateMessageContent(ctx, messageID, content, agentSteps, isCompleted)
+	}
+	sseHandler := NewADKSSEHandlerWithSave(runner, sessionID, assistantMsg.ID, adkMessages, updateFn, ctx)
+	sseHandler.SetTitleChannel(titleChan) // 设置标题 channel
+	sseHandler.HandleStream(c)
 }

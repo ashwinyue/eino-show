@@ -1,9 +1,16 @@
 // Package enhanced provides ADK wrapper for EnhancedAgent to support multi-agent transfer.
+//
+// 架构说明：
+//   - ADKAgent 实现 adk.Agent 接口，包装 EnhancedAgent
+//   - 当前架构：直接调用 EnhancedAgent.Stream()，不使用 ADK Runner
+//   - 如需完整 ADK 功能（Agent 转移、中断恢复），需重构使用 ADK 标准类型
+//
 // Reference: Eino ADK flow.go, chatmodel.go
 package enhanced
 
 import (
 	"context"
+	"io"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/schema"
@@ -59,6 +66,10 @@ func (a *ADKAgent) Description(ctx context.Context) string {
 }
 
 // Run 执行 Agent (实现 adk.Agent 接口).
+//
+// 注意：当前实现直接调用 EnhancedAgent.Stream()，不使用 ADK Runner。
+// 因此返回的事件流不包含 Action 事件（TransferToAgent, Interrupted, Exit）。
+// 如需完整的 ADK 功能，需重构为使用 adk.ReActAgent 或 adk.ChatModelAgent。
 func (a *ADKAgent) Run(ctx context.Context, input *adk.AgentInput, options ...adk.AgentRunOption) *adk.AsyncIterator[*adk.AgentEvent] {
 	iterator, generator := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
 
@@ -77,15 +88,20 @@ func (a *ADKAgent) Run(ctx context.Context, input *adk.AgentInput, options ...ad
 			return
 		}
 
-		// 读取流式输出
+		// 读取流式输出并转换为 AgentEvent
 		for {
 			msg, err := streamReader.Recv()
 			if err != nil {
+				if err != io.EOF {
+					generator.Send(&adk.AgentEvent{
+						Err: err,
+					})
+				}
 				break
 			}
 
-			// 发送消息事件
-			generator.Send(adk.EventFromMessage(msg, nil, schema.Assistant, ""))
+			// 发送消息事件（使用消息自身的 Role，确保 tool 消息不会被当作 assistant）
+			generator.Send(adk.EventFromMessage(msg, nil, msg.Role, ""))
 		}
 	}()
 

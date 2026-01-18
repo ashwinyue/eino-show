@@ -7,19 +7,19 @@ import "time"
 
 // CreateModelRequest 创建模型请求（对齐 WeKnora 格式）
 type CreateModelRequest struct {
-	Name        string            `json:"name" binding:"required"`
-	Type        string            `json:"type" binding:"required"`        // KnowledgeQA, Embedding, Rerank, VLLM
-	Source      string            `json:"source" binding:"required"`      // remote, builtin
-	Description string            `json:"description"`
-	Parameters  ModelParameters   `json:"parameters" binding:"required"`
+	Name        string          `json:"name" binding:"required"`
+	Type        string          `json:"type" binding:"required"`   // KnowledgeQA, Embedding, Rerank, VLLM
+	Source      string          `json:"source" binding:"required"` // remote, builtin
+	Description string          `json:"description"`
+	Parameters  ModelParameters `json:"parameters" binding:"required"`
 }
 
 // ModelParameters 模型参数（对齐 WeKnora）
 type ModelParameters struct {
-	BaseURL             string                `json:"base_url"`
-	APIKey              string                `json:"api_key"`
-	Provider            string                `json:"provider"`
-	EmbeddingParameters EmbeddingParameters   `json:"embedding_parameters,omitempty"`
+	BaseURL             string              `json:"base_url"`
+	APIKey              string              `json:"api_key"`
+	Provider            string              `json:"provider"`
+	EmbeddingParameters EmbeddingParameters `json:"embedding_parameters,omitempty"`
 }
 
 // EmbeddingParameters Embedding 模型参数
@@ -29,7 +29,7 @@ type EmbeddingParameters struct {
 
 // CreateModelResponse 创建模型响应（对齐 WeKnora 格式）
 type CreateModelResponse struct {
-	Success bool          `json:"success"`
+	Success bool           `json:"success"`
 	Data    *ModelResponse `json:"data"`
 }
 
@@ -40,7 +40,7 @@ type GetModelRequest struct {
 
 // GetModelResponse 获取模型响应（对齐 WeKnora 格式）
 type GetModelResponse struct {
-	Success bool          `json:"success"`
+	Success bool           `json:"success"`
 	Data    *ModelResponse `json:"data"`
 }
 
@@ -53,25 +53,25 @@ type ListModelsRequest struct {
 
 // ListModelsResponse 模型列表响应（对齐 WeKnora 格式）
 type ListModelsResponse struct {
-	Success bool            `json:"success"`
+	Success bool             `json:"success"`
 	Data    []*ModelResponse `json:"data"`
 	Total   int64            `json:"total,omitempty"`
 }
 
 // UpdateModelRequest 更新模型请求（对齐 WeKnora 格式）
 type UpdateModelRequest struct {
-	Id          string              `uri:"id" binding:"required"`
-	Name        *string             `json:"name"`
-	Type        *string             `json:"type"`        // KnowledgeQA, Embedding, Rerank, VLLM
-	Source      *string             `json:"source"`      // remote, builtin, local
-	Description *string             `json:"description"`
-	Parameters  *ModelParameters    `json:"parameters"`
-	IsDefault   *bool               `json:"is_default"`
+	Id          string           `uri:"id" binding:"required"`
+	Name        *string          `json:"name"`
+	Type        *string          `json:"type"`   // KnowledgeQA, Embedding, Rerank, VLLM
+	Source      *string          `json:"source"` // remote, builtin, local
+	Description *string          `json:"description"`
+	Parameters  *ModelParameters `json:"parameters"`
+	IsDefault   *bool            `json:"is_default"`
 }
 
 // UpdateModelResponse 更新模型响应（对齐 WeKnora 格式）
 type UpdateModelResponse struct {
-	Success bool          `json:"success"`
+	Success bool           `json:"success"`
 	Data    *ModelResponse `json:"data"`
 }
 
@@ -92,18 +92,18 @@ type SetDefaultModelRequest struct {
 
 // ModelResponse 模型响应（对齐 WeKnora 格式）
 type ModelResponse struct {
-	ID          string                 `json:"id"`
-	TenantID    uint64                 `json:"tenant_id"`
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`        // KnowledgeQA, Embedding, Rerank, VLLM
-	Source      string                 `json:"source"`      // remote, builtin, local
-	Description string                 `json:"description"`
-	Parameters  *ModelParameters       `json:"parameters"`
-	IsDefault   bool                   `json:"is_default"`
-	IsBuiltin   bool                   `json:"is_builtin"`
-	Status      string                 `json:"status"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID          string           `json:"id"`
+	TenantID    uint64           `json:"tenant_id"`
+	Name        string           `json:"name"`
+	Type        string           `json:"type"`   // KnowledgeQA, Embedding, Rerank, VLLM
+	Source      string           `json:"source"` // remote, builtin, local
+	Description string           `json:"description"`
+	Parameters  *ModelParameters `json:"parameters"`
+	IsDefault   bool             `json:"is_default"`
+	IsBuiltin   bool             `json:"is_builtin"`
+	Status      string           `json:"status"`
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
 }
 
 // SetDefaultModelResponse 设置默认模型响应
@@ -122,23 +122,23 @@ type ListProvidersResponse struct {
 	Data    []*ProviderInfo `json:"data"`
 }
 
-// ProviderInfo 模型提供商信息（对齐 WeKnora，使用驼峰命名）
+// ProviderInfo 模型提供商信息（对齐 WeKnora）
 type ProviderInfo struct {
 	Value       string            `json:"value"`
 	Label       string            `json:"label"`
 	Description string            `json:"description"`
-	DefaultURLs map[string]string `json:"defaultUrls"`  // 驼峰命名
-	ModelTypes  []string          `json:"modelTypes"`   // 驼峰命名
+	DefaultURLs map[string]string `json:"default_urls"`
+	ModelTypes  []string          `json:"model_types"`
 }
 
 // ===== 模型测试请求/响应类型 =====
 
-// TestChatModelRequest 测试 Chat 模型请求
+// TestChatModelRequest 测试 Chat 模型请求（对齐 WeKnora 前端驼峰命名）
 type TestChatModelRequest struct {
-	Provider  string `json:"provider" binding:"required"`
-	ModelName string `json:"model_name"`
-	BaseURL   string `json:"base_url"`
-	APIKey    string `json:"api_key" binding:"required"`
+	Provider  string `json:"provider"`
+	ModelName string `json:"modelName"`
+	BaseURL   string `json:"baseUrl"`
+	APIKey    string `json:"apiKey"`
 }
 
 // TestChatModelResponse 测试 Chat 模型响应
@@ -149,12 +149,12 @@ type TestChatModelResponse struct {
 	Latency int64  `json:"latency_ms,omitempty"` // 响应延迟（毫秒）
 }
 
-// TestEmbeddingModelRequest 测试 Embedding 模型请求
+// TestEmbeddingModelRequest 测试 Embedding 模型请求（对齐 WeKnora 前端驼峰命名）
 type TestEmbeddingModelRequest struct {
-	Provider  string `json:"provider" binding:"required"`
-	ModelName string `json:"model_name"`
-	BaseURL   string `json:"base_url"`
-	APIKey    string `json:"api_key" binding:"required"`
+	Provider  string `json:"provider"`
+	ModelName string `json:"modelName"`
+	BaseURL   string `json:"baseUrl"`
+	APIKey    string `json:"apiKey"`
 	Text      string `json:"text"`
 }
 
@@ -166,12 +166,12 @@ type TestEmbeddingModelResponse struct {
 	Latency   int64  `json:"latency_ms,omitempty"`
 }
 
-// TestRerankModelRequest 测试 Rerank 模型请求
+// TestRerankModelRequest 测试 Rerank 模型请求（对齐 WeKnora 前端驼峰命名）
 type TestRerankModelRequest struct {
-	Provider  string `json:"provider" binding:"required"`
-	ModelName string `json:"model_name"`
-	BaseURL   string `json:"base_url"`
-	APIKey    string `json:"api_key" binding:"required"`
+	Provider  string `json:"provider"`
+	ModelName string `json:"modelName"`
+	BaseURL   string `json:"baseUrl"`
+	APIKey    string `json:"apiKey"`
 }
 
 // TestRerankModelResponse 测试 Rerank 模型响应

@@ -12,6 +12,36 @@ import (
 	"github.com/ashwinyue/eino-show/pkg/log"
 )
 
+type thinkingEventKey struct{}
+
+type ThinkingEvent struct {
+	Thought           string
+	ThoughtNumber     int
+	TotalThoughts     int
+	NextThoughtNeeded bool
+}
+
+type ThinkingEmitter func(ThinkingEvent)
+
+func WithThinkingEmitter(ctx context.Context, emitter ThinkingEmitter) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, thinkingEventKey{}, emitter)
+}
+
+func GetThinkingEmitter(ctx context.Context) (ThinkingEmitter, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+	v := ctx.Value(thinkingEventKey{})
+	if v == nil {
+		return nil, false
+	}
+	emitter, ok := v.(ThinkingEmitter)
+	return emitter, ok
+}
+
 // ToolThinking 是 thinking 工具的名称.
 const ToolThinking = "thinking"
 
@@ -115,6 +145,26 @@ func (t *SequentialThinkingTool) InvokableRun(ctx context.Context, argumentsInJS
 		return "", fmt.Errorf("failed to parse args: %w", err)
 	}
 
+	// 兼容模型偶发的 total_thorts 拼写错误
+	if input.TotalThoughts == 0 {
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(argumentsInJSON), &raw); err == nil {
+			if v, ok := raw["total_thorts"]; ok {
+				if num, ok := v.(float64); ok {
+					input.TotalThoughts = int(num)
+				}
+			}
+		}
+	}
+
+	// total_thoughts 缺失或小于1时，用 thought_number 兜底
+	if input.ThoughtNumber < 1 {
+		input.ThoughtNumber = 1
+	}
+	if input.TotalThoughts < 1 {
+		input.TotalThoughts = input.ThoughtNumber
+	}
+
 	if err := t.validate(input); err != nil {
 		return "", fmt.Errorf("validation failed: %w", err)
 	}
@@ -146,6 +196,15 @@ func (t *SequentialThinkingTool) InvokableRun(ctx context.Context, argumentsInJS
 		"thought_history_length": len(t.thoughtHistory),
 		"thought":                input.Thought,
 		"incomplete_steps":       incomplete,
+	}
+
+	if emitter, ok := GetThinkingEmitter(ctx); ok && emitter != nil {
+		emitter(ThinkingEvent{
+			Thought:           input.Thought,
+			ThoughtNumber:     input.ThoughtNumber,
+			TotalThoughts:     input.TotalThoughts,
+			NextThoughtNeeded: input.NextThoughtNeeded,
+		})
 	}
 
 	resultJSON, _ := json.Marshal(result)

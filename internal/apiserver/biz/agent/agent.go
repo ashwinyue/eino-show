@@ -70,18 +70,83 @@ func (b *agentBiz) Create(ctx context.Context, req *v1.CreateAgentRequest) (*v1.
 	}
 
 	return &v1.CreateAgentResponse{
-		Agent: toAgentResponse(agentM),
+		Success: true,
+		Data:    toAgentResponse(agentM),
 	}, nil
 }
 
 func (b *agentBiz) Get(ctx context.Context, req *v1.GetAgentRequest) (*v1.GetAgentResponse, error) {
+	tenantID := contextx.TenantID(ctx)
+
+	// 检查是否是内置 Agent（对齐 WeKnora）
+	if model.IsBuiltinAgentID(req.Id) {
+		return b.getBuiltinAgent(ctx, req.Id, tenantID)
+	}
+
 	agentM, err := b.store.CustomAgent().Get(ctx, where.F("id", req.Id))
 	if err != nil {
 		return nil, err
 	}
 
 	return &v1.GetAgentResponse{
-		Agent: toAgentResponse(agentM),
+		Success: true,
+		Data:    toAgentResponse(agentM),
+	}, nil
+}
+
+// getBuiltinAgent 获取内置 Agent（对齐 WeKnora）
+func (b *agentBiz) getBuiltinAgent(ctx context.Context, id string, tenantID uint64) (*v1.GetAgentResponse, error) {
+	// 获取默认内置 Agent 信息
+	var defaultInfo model.BuiltinAgentInfo
+	for _, info := range model.GetBuiltinAgentInfos() {
+		if info.ID == id {
+			defaultInfo = info
+			break
+		}
+	}
+	if defaultInfo.ID == "" {
+		return nil, ErrAgentNotFound
+	}
+
+	// 获取默认配置
+	defaultConfig, _ := model.GetBuiltinAgentConfig(id)
+
+	// 将默认配置转为 map
+	configJSON, _ := json.Marshal(defaultConfig)
+	var configMap map[string]interface{}
+	json.Unmarshal(configJSON, &configMap)
+
+	// 尝试从数据库获取自定义配置
+	// 对于内置 agent，不使用 tenant_id 过滤（因为内置 agent 是全局共享的）
+	dbAgent, err := b.store.CustomAgent().Get(ctx, where.F("id", id))
+	if err == nil && dbAgent != nil && dbAgent.Config != "" {
+		// 数据库有记录，只合并用户可自定义的字段
+		var dbConfig map[string]interface{}
+		json.Unmarshal([]byte(dbAgent.Config), &dbConfig)
+
+		// 只允许用户自定义这些字段（其他使用默认值）
+		userCustomizableFields := []string{
+			"model_id", "rerank_model_id", "system_prompt", "temperature",
+			"knowledge_bases", "kb_selection_mode", "mcp_services", "mcp_selection_mode",
+		}
+		for _, field := range userCustomizableFields {
+			if val, ok := dbConfig[field]; ok && val != nil && val != "" {
+				configMap[field] = val
+			}
+		}
+	}
+
+	return &v1.GetAgentResponse{
+		Success: true,
+		Data: &v1.AgentResponse{
+			ID:          id,
+			Name:        defaultInfo.Name,
+			Description: defaultInfo.Description,
+			Avatar:      defaultInfo.Avatar,
+			Config:      configMap,
+			TenantID:    tenantID,
+			IsBuiltin:   true,
+		},
 	}, nil
 }
 
@@ -92,7 +157,7 @@ func (b *agentBiz) List(ctx context.Context, req *v1.ListAgentsRequest) (*v1.Lis
 		opts.P(req.Page, req.PageSize)
 	}
 
-	total, list, err := b.store.CustomAgent().List(ctx, opts)
+	_, list, err := b.store.CustomAgent().List(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +168,19 @@ func (b *agentBiz) List(ctx context.Context, req *v1.ListAgentsRequest) (*v1.Lis
 	}
 
 	return &v1.ListAgentsResponse{
-		Agents: agents,
-		Total:  total,
+		Success: true,
+		Data:    agents,
 	}, nil
 }
 
 func (b *agentBiz) Update(ctx context.Context, id string, req *v1.UpdateAgentRequest) (*v1.UpdateAgentResponse, error) {
+	tenantID := contextx.TenantID(ctx)
+
+	// 检查是否是内置 Agent（对齐 WeKnora）
+	if model.IsBuiltinAgentID(id) {
+		return b.updateBuiltinAgent(ctx, id, req, tenantID)
+	}
+
 	agentM, err := b.store.CustomAgent().Get(ctx, where.F("id", id))
 	if err != nil {
 		return nil, err
@@ -135,7 +207,68 @@ func (b *agentBiz) Update(ctx context.Context, id string, req *v1.UpdateAgentReq
 	}
 
 	return &v1.UpdateAgentResponse{
-		Agent: toAgentResponse(agentM),
+		Success: true,
+		Data:    toAgentResponse(agentM),
+	}, nil
+}
+
+// updateBuiltinAgent 更新内置 Agent 配置（对齐 WeKnora）
+func (b *agentBiz) updateBuiltinAgent(ctx context.Context, id string, req *v1.UpdateAgentRequest, tenantID uint64) (*v1.UpdateAgentResponse, error) {
+	// 获取内置 Agent 默认信息
+	var defaultInfo model.BuiltinAgentInfo
+	for _, info := range model.GetBuiltinAgentInfos() {
+		if info.ID == id {
+			defaultInfo = info
+			break
+		}
+	}
+	if defaultInfo.ID == "" {
+		return nil, ErrAgentNotFound
+	}
+
+	now := time.Now()
+
+	// 尝试从数据库获取已存在的自定义配置
+	existingAgent, err := b.store.CustomAgent().Get(ctx, where.F("id", id).F("tenant_id", tenantID))
+	if err == nil {
+		// 存在记录，更新配置
+		if req.Config != nil {
+			configJSON, _ := json.Marshal(req.Config)
+			existingAgent.Config = string(configJSON)
+		}
+		existingAgent.UpdatedAt = &now
+
+		if err := b.store.CustomAgent().Update(ctx, existingAgent); err != nil {
+			return nil, err
+		}
+
+		return &v1.UpdateAgentResponse{
+			Success: true,
+			Data:    toAgentResponse(existingAgent),
+		}, nil
+	}
+
+	// 不存在记录，创建新记录保存自定义配置
+	configJSON, _ := json.Marshal(req.Config)
+	newAgent := &model.CustomAgentM{
+		ID:          id,
+		TenantID:    int32(tenantID),
+		Name:        defaultInfo.Name,
+		Description: &defaultInfo.Description,
+		Avatar:      &defaultInfo.Avatar,
+		Config:      string(configJSON),
+		IsBuiltin:   true,
+		CreatedAt:   &now,
+		UpdatedAt:   &now,
+	}
+
+	if err := b.store.CustomAgent().Create(ctx, newAgent); err != nil {
+		return nil, err
+	}
+
+	return &v1.UpdateAgentResponse{
+		Success: true,
+		Data:    toAgentResponse(newAgent),
 	}, nil
 }
 
@@ -189,36 +322,49 @@ func (b *agentBiz) Copy(ctx context.Context, id string) (*v1.CopyAgentResponse, 
 	}
 
 	return &v1.CopyAgentResponse{
-		Agent: toAgentResponse(newAgent),
+		Success: true,
+		Data:    toAgentResponse(newAgent),
 	}, nil
 }
 
 func (b *agentBiz) ListBuiltin(ctx context.Context) []*v1.BuiltinAgent {
-	// 从数据库获取内置 Agent
+	// 获取所有默认内置 Agent 信息
+	defaultInfos := model.GetBuiltinAgentInfos()
+
+	// 从数据库获取有自定义配置的内置 Agent
+	dbAgents := make(map[string]*model.CustomAgentM)
 	list, err := b.store.CustomAgent().GetBuiltinAgents(ctx)
-	if err != nil || len(list) == 0 {
-		// 如果数据库没有，返回默认内置 Agent 信息
-		infos := model.GetBuiltinAgentInfos()
-		agents := make([]*v1.BuiltinAgent, len(infos))
-		for i, info := range infos {
-			agents[i] = &v1.BuiltinAgent{
-				Id:          info.ID,
-				Name:        info.Name,
-				Description: info.Description,
-				Avatar:      info.Avatar,
-				Type:        "builtin",
-			}
+	if err == nil {
+		for _, a := range list {
+			dbAgents[a.ID] = a
 		}
-		return agents
 	}
 
-	agents := make([]*v1.BuiltinAgent, len(list))
-	for i, a := range list {
+	// 返回所有默认内置 Agent，用数据库配置覆盖
+	agents := make([]*v1.BuiltinAgent, len(defaultInfos))
+	for i, info := range defaultInfos {
+		name := info.Name
+		description := info.Description
+		avatar := info.Avatar
+
+		// 如果数据库有记录，用数据库值覆盖（非空字段）
+		if dbAgent, ok := dbAgents[info.ID]; ok {
+			if dbAgent.Name != "" {
+				name = dbAgent.Name
+			}
+			if dbAgent.Description != nil && *dbAgent.Description != "" {
+				description = *dbAgent.Description
+			}
+			if dbAgent.Avatar != nil && *dbAgent.Avatar != "" {
+				avatar = *dbAgent.Avatar
+			}
+		}
+
 		agents[i] = &v1.BuiltinAgent{
-			Id:          a.ID,
-			Name:        a.Name,
-			Description: ptrToString(a.Description),
-			Avatar:      ptrToString(a.Avatar),
+			Id:          info.ID,
+			Name:        name,
+			Description: description,
+			Avatar:      avatar,
 			Type:        "builtin",
 		}
 	}
@@ -235,15 +381,26 @@ func (b *agentBiz) GetPlaceholders(ctx context.Context) *v1.PlaceholdersResponse
 	toV1Placeholders := func(defs []model.PlaceholderDef) []v1.Placeholder {
 		result := make([]v1.Placeholder, len(defs))
 		for i, d := range defs {
-			result[i] = v1.Placeholder{Name: d.Name, Description: d.Description}
+			result[i] = v1.Placeholder{
+				Name:        d.Name,
+				Label:       d.Label,
+				Description: d.Description,
+			}
 		}
 		return result
 	}
 
 	return &v1.PlaceholdersResponse{
-		All:             toV1Placeholders(allDefs),
-		SystemPrompt:    toV1Placeholders(systemPromptDefs),
-		ContextTemplate: toV1Placeholders(contextTemplateDefs),
+		Success: true,
+		Data: &v1.PlaceholdersData{
+			All:                 toV1Placeholders(allDefs),
+			SystemPrompt:        toV1Placeholders(systemPromptDefs),
+			ContextTemplate:     toV1Placeholders(contextTemplateDefs),
+			AgentSystemPrompt:   toV1Placeholders(model.PlaceholdersByField(model.PromptFieldAgentSystemPrompt)),
+			RewriteSystemPrompt: toV1Placeholders(model.PlaceholdersByField(model.PromptFieldRewriteSystemPrompt)),
+			RewritePrompt:       toV1Placeholders(model.PlaceholdersByField(model.PromptFieldRewritePrompt)),
+			FallbackPrompt:      toV1Placeholders(model.PlaceholdersByField(model.PromptFieldFallbackPrompt)),
+		},
 	}
 }
 

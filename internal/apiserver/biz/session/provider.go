@@ -11,7 +11,6 @@ import (
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
 	"github.com/ashwinyue/eino-show/internal/pkg/agent/enhanced"
 	agentmodel "github.com/ashwinyue/eino-show/internal/pkg/agent/model"
-	"github.com/ashwinyue/eino-show/internal/pkg/agent/router"
 	"github.com/ashwinyue/eino-show/internal/pkg/stream"
 )
 
@@ -70,38 +69,45 @@ func NewSessionBizWithConfig(ctx context.Context, cfg *SessionConfig) (SessionBi
 }
 
 // initEnhancedComponents 初始化增强组件.
+// NOTE: 动态提示词、经验管理、意图路由暂时禁用，与 WeKnora 保持一致，便于测试.
 func initEnhancedComponents(ctx context.Context, qaCfg *QAConfig, cfg *SessionConfig) error {
 	// 1. 创建聊天模型 (用于意图路由)
-	chatModel, err := createChatModel(ctx, cfg.ChatModelConfig)
-	if err != nil {
-		return err
-	}
+	// NOTE: 暂时禁用，与 WeKnora 保持一致
+	// chatModel, err := createChatModel(ctx, cfg.ChatModelConfig)
+	// if err != nil {
+	// 	return err
+	// }
+	_ = ctx // avoid unused
+	_ = cfg // avoid unused
 
 	// 2. 初始化意图路由器
-	intentRouter, err := router.NewIntentRouter(ctx, &router.RouterConfig{
-		ChatModel: chatModel,
-		FastIntentRules: []router.FastIntentRule{
-			{Patterns: []string{"你好", "hi", "hello"}, Response: "你好！有什么可以帮助你的吗？", Intent: router.IntentFastPath},
-			{Patterns: []string{"谢谢", "感谢"}, Response: "不客气！还有其他问题吗？", Intent: router.IntentFastPath},
-		},
-	})
-	if err == nil {
-		qaCfg.IntentRouter = intentRouter
-	}
+	// NOTE: 暂时禁用，与 WeKnora 保持一致
+	// intentRouter, err := router.NewIntentRouter(ctx, &router.RouterConfig{
+	// 	ChatModel: chatModel,
+	// 	FastIntentRules: []router.FastIntentRule{
+	// 		{Patterns: []string{"你好", "hi", "hello"}, Response: "你好！有什么可以帮助你的吗？", Intent: router.IntentFastPath},
+	// 		{Patterns: []string{"谢谢", "感谢"}, Response: "不客气！还有其他问题吗？", Intent: router.IntentFastPath},
+	// 	},
+	// })
+	// if err == nil {
+	// 	qaCfg.IntentRouter = intentRouter
+	// }
 
 	// 3. 初始化动态 Prompt 构建器
-	dynamicPromptBuilder := router.NewDefaultDynamicPromptBuilder(
-		"You are a helpful AI assistant with access to various tools and knowledge bases.",
-	)
-	qaCfg.DynamicPromptBuilder = dynamicPromptBuilder
+	// NOTE: 暂时禁用，与 WeKnora 保持一致
+	// dynamicPromptBuilder := router.NewDefaultDynamicPromptBuilder(
+	// 	"You are a helpful AI assistant with access to various tools and knowledge bases.",
+	// )
+	// qaCfg.DynamicPromptBuilder = dynamicPromptBuilder
 
 	// 4. 初始化经验管理器
-	experienceManager, err := router.NewExperienceManager(&router.ExperienceManagerConfig{
-		MaxExperiences: 100,
-	})
-	if err == nil {
-		qaCfg.ExperienceManager = experienceManager
-	}
+	// NOTE: 暂时禁用，与 WeKnora 保持一致
+	// experienceManager, err := router.NewExperienceManager(&router.ExperienceManagerConfig{
+	// 	MaxExperiences: 100,
+	// })
+	// if err == nil {
+	// 	qaCfg.ExperienceManager = experienceManager
+	// }
 
 	// 5. 初始化子 Agent 配置 (如果启用多 Agent)
 	if cfg.EnableMultiAgent {

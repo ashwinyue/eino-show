@@ -52,7 +52,8 @@ func (b *mcpBiz) Create(ctx context.Context, req *v1.CreateMCPServiceRequest) (*
 	}
 
 	return &v1.CreateMCPServiceResponse{
-		MCPService: toMCPServiceResponse(mcpM),
+		Success: true,
+		Data:    toMCPServiceResponse(mcpM),
 	}, nil
 }
 
@@ -63,7 +64,8 @@ func (b *mcpBiz) Get(ctx context.Context, req *v1.GetMCPServiceRequest) (*v1.Get
 	}
 
 	return &v1.GetMCPServiceResponse{
-		MCPService: toMCPServiceResponse(mcpM),
+		Success: true,
+		Data:    toMCPServiceResponse(mcpM),
 	}, nil
 }
 
@@ -80,8 +82,9 @@ func (b *mcpBiz) List(ctx context.Context, req *v1.ListMCPServicesRequest) (*v1.
 	}
 
 	return &v1.ListMCPServicesResponse{
-		MCPServices: services,
-		Total:       int64(len(list)),
+		Success: true,
+		Data:    services,
+		Total:   int64(len(list)),
 	}, nil
 }
 
@@ -111,7 +114,8 @@ func (b *mcpBiz) Update(ctx context.Context, id string, req *v1.UpdateMCPService
 	}
 
 	return &v1.UpdateMCPServiceResponse{
-		MCPService: toMCPServiceResponse(mcpM),
+		Success: true,
+		Data:    toMCPServiceResponse(mcpM),
 	}, nil
 }
 
@@ -160,7 +164,7 @@ func (b *mcpBiz) GetTools(ctx context.Context, req *v1.GetMCPServiceToolsRequest
 	// 获取 MCP 服务
 	mcpService, err := b.store.MCPService().GetByID(ctx, req.Id)
 	if err != nil {
-		return &v1.GetMCPServiceToolsResponse{Tools: []*v1.MCPToolResponse{}}, nil
+		return &v1.GetMCPServiceToolsResponse{Success: true, Data: []*v1.MCPToolResponse{}}, nil
 	}
 
 	// 返回预定义工具列表 (实际需要从 MCP 服务获取)
@@ -178,7 +182,8 @@ func (b *mcpBiz) GetTools(ctx context.Context, req *v1.GetMCPServiceToolsRequest
 	// 根据服务类型返回不同工具
 	_ = mcpService
 	return &v1.GetMCPServiceToolsResponse{
-		Tools: tools,
+		Success: true,
+		Data:    tools,
 	}, nil
 }
 

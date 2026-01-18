@@ -239,12 +239,12 @@ func (b *tenantBiz) Search(ctx context.Context, req *v1.SearchTenantsRequest) (*
 	}, nil
 }
 
-// 支持的 KV 配置键
+// 支持的 KV 配置键（对齐 WeKnora，使用连字符）
 const (
-	KVKeyAgentConfig        = "agent_config"
-	KVKeyWebSearchConfig    = "web_search_config"
-	KVKeyConversationConfig = "conversation_config"
-	KVKeyContextConfig      = "context_config"
+	KVKeyAgentConfig        = "agent-config"
+	KVKeyWebSearchConfig    = "web-search-config"
+	KVKeyConversationConfig = "conversation-config"
+	KVKeyContextConfig      = "context-config"
 	KVKeyPromptTemplates    = "prompt-templates"
 )
 
@@ -260,7 +260,6 @@ func (b *tenantBiz) GetKV(ctx context.Context, tenantID uint64, key string) (*v1
 		return &v1.TenantKVResponse{
 			Success: false,
 			Message: "tenant not found",
-			Key:     key,
 		}, nil
 	}
 
@@ -304,14 +303,12 @@ func (b *tenantBiz) GetKV(ctx context.Context, tenantID uint64, key string) (*v1
 		return &v1.TenantKVResponse{
 			Success: false,
 			Message: "unsupported key: " + key,
-			Key:     key,
 		}, nil
 	}
 
 	return &v1.TenantKVResponse{
 		Success: true,
-		Key:     key,
-		Value:   value,
+		Data:    value,
 	}, nil
 }
 
@@ -367,9 +364,11 @@ func (b *tenantBiz) UpdateKV(ctx context.Context, tenantID uint64, req *v1.Updat
 		}, nil
 	}
 
+	// 返回更新后的配置数据（对齐 WeKnora）
 	return &v1.UpdateTenantKVResponse{
 		Success: true,
-		Message: "KV updated successfully",
+		Message: "Configuration updated successfully",
+		Data:    req.Value,
 	}, nil
 }
 
@@ -436,10 +435,16 @@ func toTenantFull(t *model.TenantM) *v1.TenantFull {
 		var webConfig model.WebSearchConfig
 		if json.Unmarshal([]byte(*t.WebSearchConfig), &webConfig) == nil {
 			tenant.WebSearchConfig = &v1.WebSearchConfig{
-				Enabled:        webConfig.Enabled,
-				Provider:       webConfig.Provider,
-				MaxResults:     webConfig.MaxResults,
-				SearchEngineID: webConfig.SearchEngineID,
+				Provider:           webConfig.Provider,
+				APIKey:             webConfig.APIKey,
+				MaxResults:         webConfig.MaxResults,
+				IncludeDate:        webConfig.IncludeDate,
+				CompressionMethod:  webConfig.CompressionMethod,
+				Blacklist:          webConfig.Blacklist,
+				EmbeddingModelID:   webConfig.EmbeddingModelID,
+				EmbeddingDimension: webConfig.EmbeddingDimension,
+				RerankModelID:      webConfig.RerankModelID,
+				DocumentFragments:  webConfig.DocumentFragments,
 			}
 		}
 	}

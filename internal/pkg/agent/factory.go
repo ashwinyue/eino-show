@@ -82,11 +82,11 @@ func NewFactory(ctx context.Context, cfg *FactoryConfig) (*Factory, error) {
 			return nil, fmt.Errorf("failed to create embedder: %w", err)
 		}
 		f.embed = embed
+	}
 
-		// 注册默认工具
-		if err := f.registerDefaultTools(ctx); err != nil {
-			return nil, fmt.Errorf("failed to register default tools: %w", err)
-		}
+	// 注册默认工具（无论是否配置 Embedding）
+	if err := f.registerDefaultTools(ctx); err != nil {
+		return nil, fmt.Errorf("failed to register default tools: %w", err)
 	}
 
 	return f, nil
@@ -106,12 +106,18 @@ func (f *Factory) registerDefaultTools(ctx context.Context) error {
 	grepChunks := agenttool.NewGrepChunks(f.cfg.Store)
 	registry.Register(grepChunks)
 
-	// 注册 web_search 工具（占位符）
+	// 注册 web_search 工具
 	webSearch, err := agenttool.NewWebSearch(ctx)
 	if err != nil {
 		return err
 	}
 	registry.Register(webSearch)
+	// 添加 search_web 别名（兼容 LLM 调用错误名称）
+	registry.Register(agenttool.NewAliasedTool(webSearch, "search_web"))
+
+	// 注册 todo_write 工具（任务规划管理）
+	todoWrite := agenttool.NewTodoTool()
+	registry.Register(todoWrite)
 
 	return nil
 }

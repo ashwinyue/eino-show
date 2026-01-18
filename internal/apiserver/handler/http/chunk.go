@@ -27,7 +27,7 @@ func (h *Handler) ListKnowledgeChunks(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    resp.Chunks,
+		"data":    resp.Data,
 		"total":   resp.Total,
 	})
 }

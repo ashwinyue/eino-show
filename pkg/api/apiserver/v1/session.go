@@ -12,12 +12,13 @@ type CreateSessionRequest struct {
 	AgentID     string `json:"agent_id"`
 }
 
-// SessionResponse 会话响应
+// SessionResponse 会话响应（对齐 WeKnora）
 type SessionResponse struct {
 	ID          string    `json:"id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	TenantID    uint64    `json:"tenant_id"`
+	AgentID     string    `json:"agent_id,omitempty"` // 关联的智能体 ID
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -67,29 +68,22 @@ type MessageRequest struct {
 	Content string `json:"content"`
 }
 
-// SearchKnowledgeRequest 知识搜索请求
-type SearchKnowledgeRequest struct {
-	Query            string   `json:"query" binding:"required"`
-	KnowledgeBaseID  string   `json:"knowledge_base_id"`
-	KnowledgeBaseIDs []string `json:"knowledge_base_ids"`
-	KnowledgeIDs     []string `json:"knowledge_ids"`
-}
-
 // ExecuteRequest 问答执行请求（简化版）
 type ExecuteRequest struct {
 	Question string `json:"question" binding:"required"`
 }
 
-// ===== 扩展请求/响应类型 =====
+// ===== 扩展请求/响应类型（对齐 WeKnora 格式）=====
 
 // GetSessionRequest 获取会话请求
 type GetSessionRequest struct {
 	Id string `uri:"id" binding:"required"`
 }
 
-// GetSessionResponse 获取会话响应
+// GetSessionResponse 获取会话响应（对齐 WeKnora 格式）
 type GetSessionResponse struct {
-	Session *SessionResponse `json:"session"`
+	Success bool             `json:"success"`
+	Data    *SessionResponse `json:"data"`
 }
 
 // ListSessionsRequest 会话列表请求
@@ -98,20 +92,25 @@ type ListSessionsRequest struct {
 	PageSize int `form:"page_size"`
 }
 
-// ListSessionsResponse 会话列表响应
+// ListSessionsResponse 会话列表响应（对齐 WeKnora 格式）
 type ListSessionsResponse struct {
-	Sessions []*SessionResponse `json:"sessions"`
-	Total    int64              `json:"total"`
+	Success  bool               `json:"success"`
+	Data     []*SessionResponse `json:"data"`
+	Total    int64              `json:"total,omitempty"`
+	Page     int64              `json:"page,omitempty"`
+	PageSize int64              `json:"page_size,omitempty"`
 }
 
-// CreateSessionResponse 创建会话响应
+// CreateSessionResponse 创建会话响应（对齐 WeKnora 格式）
 type CreateSessionResponse struct {
-	Session *SessionResponse `json:"session"`
+	Success bool             `json:"success"`
+	Data    *SessionResponse `json:"data"`
 }
 
-// UpdateSessionResponse 更新会话响应
+// UpdateSessionResponse 更新会话响应（对齐 WeKnora 格式）
 type UpdateSessionResponse struct {
-	Session *SessionResponse `json:"session"`
+	Success bool             `json:"success"`
+	Data    *SessionResponse `json:"data"`
 }
 
 // DeleteSessionRequest 删除会话请求
@@ -119,7 +118,7 @@ type DeleteSessionRequest struct {
 	Id string `uri:"id" binding:"required"`
 }
 
-// DeleteSessionResponse 删除会话响应
+// DeleteSessionResponse 删除会话响应（对齐 WeKnora 格式）
 type DeleteSessionResponse struct {
 	Success bool `json:"success"`
 }

@@ -16,6 +16,7 @@ const (
 // PlaceholderDef 占位符定义
 type PlaceholderDef struct {
 	Name        string        `json:"name"`
+	Label       string        `json:"label"`       // 显示标签
 	Description string        `json:"description"`
 	Example     string        `json:"example,omitempty"`
 	Fields      []PromptField `json:"fields"` // 适用的字段
@@ -25,60 +26,70 @@ type PlaceholderDef struct {
 var allPlaceholders = []PlaceholderDef{
 	{
 		Name:        "{{query}}",
+		Label:       "用户问题",
 		Description: "用户的原始问题",
 		Example:     "什么是人工智能？",
 		Fields:      []PromptField{PromptFieldContextTemplate, PromptFieldRewritePrompt},
 	},
 	{
 		Name:        "{{contexts}}",
+		Label:       "检索内容",
 		Description: "从知识库检索到的相关内容",
 		Example:     "[1] AI是人工智能的缩写...\n[2] 机器学习是AI的子领域...",
 		Fields:      []PromptField{PromptFieldContextTemplate},
 	},
 	{
 		Name:        "{{history}}",
+		Label:       "历史对话",
 		Description: "历史对话记录",
 		Example:     "用户: 你好\n助手: 你好，有什么可以帮助你的？",
 		Fields:      []PromptField{PromptFieldContextTemplate, PromptFieldRewritePrompt},
 	},
 	{
 		Name:        "{{current_time}}",
+		Label:       "当前时间",
 		Description: "当前时间",
 		Example:     "2024-01-15 14:30:00",
 		Fields:      []PromptField{PromptFieldSystemPrompt, PromptFieldAgentSystemPrompt},
 	},
 	{
 		Name:        "{{global_context}}",
+		Label:       "全局上下文",
 		Description: "全局上下文信息",
 		Example:     "公司名称: ABC科技\n产品: 智能助手",
 		Fields:      []PromptField{PromptFieldSystemPrompt, PromptFieldAgentSystemPrompt, PromptFieldContextTemplate},
 	},
 	{
 		Name:        "{{rewritten_query}}",
+		Label:       "重写查询",
 		Description: "重写后的查询",
 		Example:     "人工智能的定义是什么？",
 		Fields:      []PromptField{PromptFieldContextTemplate},
 	},
 	{
 		Name:        "{{knowledge_base_name}}",
+		Label:       "知识库名称",
 		Description: "知识库名称",
 		Example:     "产品文档库",
 		Fields:      []PromptField{PromptFieldSystemPrompt, PromptFieldAgentSystemPrompt},
 	},
 	{
 		Name:        "{{session_id}}",
+		Label:       "会话ID",
 		Description: "会话 ID",
 		Example:     "sess-abc123",
 		Fields:      []PromptField{PromptFieldSystemPrompt, PromptFieldAgentSystemPrompt},
 	},
 	{
 		Name:        "{{user_id}}",
+		Label:       "用户ID",
 		Description: "用户 ID",
 		Example:     "user-xyz789",
 		Fields:      []PromptField{PromptFieldSystemPrompt, PromptFieldAgentSystemPrompt},
 	},
 	{
 		Name:        "{{tools}}",
+		Label:       "可用工具",
 		Description: "可用工具列表",
 		Example:     "knowledge_search, web_search, calculator",
 		Fields:      []PromptField{PromptFieldAgentSystemPrompt},

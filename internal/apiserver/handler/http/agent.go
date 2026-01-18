@@ -53,7 +53,7 @@ func (h *Handler) ListAgents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"agents": resp.Agents, "total": resp.Total})
+	c.JSON(http.StatusOK, resp)
 }
 
 // GetAgent 获取 Agent 详情.
@@ -79,7 +79,7 @@ func (h *Handler) GetAgent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"agent": resp})
+	c.JSON(http.StatusOK, resp)
 }
 
 // CreateAgent 创建自定义 Agent.
@@ -110,7 +110,7 @@ func (h *Handler) CreateAgent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": resp})
+	c.JSON(http.StatusCreated, resp)
 }
 
 // UpdateAgent 更新 Agent.
@@ -149,7 +149,7 @@ func (h *Handler) UpdateAgent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": resp})
+	c.JSON(http.StatusOK, resp)
 }
 
 // DeleteAgent 删除 Agent.
@@ -189,11 +189,12 @@ func (h *Handler) DeleteAgent(c *gin.Context) {
 func (h *Handler) ListBuiltinAgents(c *gin.Context) {
 	builtinAgents := h.biz.Agent().ListBuiltin(c.Request.Context())
 	c.JSON(http.StatusOK, gin.H{
-		"agents": builtinAgents,
+		"success": true,
+		"data":    builtinAgents,
 	})
 }
 
-// ListAllAgents 获取所有 Agent（内置+自定义组合）.
+// ListAllAgents 获取所有 Agent（内置+自定义组合，对齐 WeKnora 格式）.
 // @Summary      获取所有 Agent
 // @Description  获取所有 Agent，包括内置 Agent 和自定义 Agent
 // @Tags         agents
@@ -203,40 +204,53 @@ func (h *Handler) ListBuiltinAgents(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/agents [get]
 func (h *Handler) ListAllAgents(c *gin.Context) {
-	// 获取内置 Agent
+	// 获取内置 Agent（已包含数据库自定义配置）
 	builtinAgents := h.biz.Agent().ListBuiltin(c.Request.Context())
 
-	// 获取自定义 Agent
+	// 获取自定义 Agent（只取非内置的）
 	customAgentsResp, _ := h.biz.Agent().List(c.Request.Context(), nil)
 
 	// 组合所有 Agent
-	resultAgents := []map[string]any{}
+	resultAgents := []v1.AgentResponse{}
 
-	// 添加内置 Agent
+	// 1. 添加所有内置 Agent（包含默认配置）
 	for _, agent := range builtinAgents {
-		resultAgents = append(resultAgents, map[string]any{
-			"id":       agent.Id,
-			"name":     agent.Name,
-			"type":     "builtin",
-			"metadata": agent,
-		})
-	}
-
-	// 添加自定义 Agent
-	if customAgentsResp != nil {
-		for _, agent := range customAgentsResp.Agents {
-			resultAgents = append(resultAgents, map[string]any{
-				"id":       agent.ID,
-				"name":     agent.Name,
-				"type":     "custom",
-				"metadata": agent,
+		// 获取内置 Agent 的详细信息（包含配置）
+		agentResp, err := h.biz.Agent().Get(c.Request.Context(), &v1.GetAgentRequest{Id: agent.Id})
+		if err == nil && agentResp != nil && agentResp.Data != nil {
+			resultAgents = append(resultAgents, *agentResp.Data)
+		} else {
+			// 回退：只返回基本信息
+			resultAgents = append(resultAgents, v1.AgentResponse{
+				ID:          agent.Id,
+				Name:        agent.Name,
+				Description: agent.Description,
+				Avatar:      agent.Avatar,
+				IsBuiltin:   true,
 			})
 		}
 	}
 
+	// 2. 添加非内置的自定义 Agent
+	if customAgentsResp != nil {
+		for _, agent := range customAgentsResp.Data {
+			if !agent.IsBuiltin {
+				resultAgents = append(resultAgents, v1.AgentResponse{
+					ID:          agent.ID,
+					Name:        agent.Name,
+					Description: agent.Description,
+					Avatar:      agent.Avatar,
+					Config:      agent.Config,
+					TenantID:    agent.TenantID,
+					IsBuiltin:   false,
+				})
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"agents": resultAgents,
-		"total":  len(resultAgents),
+		"success": true,
+		"data":    resultAgents,
 	})
 }
 
@@ -248,10 +262,7 @@ func (h *Handler) ListAllAgents(c *gin.Context) {
 // GET /api/v1/agents/placeholders
 func (h *Handler) GetPlaceholders(c *gin.Context) {
 	resp := h.biz.Agent().GetPlaceholders(c.Request.Context())
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    resp,
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 // CopyAgent 复制 Agent
@@ -268,8 +279,5 @@ func (h *Handler) CopyAgent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    resp.Agent,
-	})
+	c.JSON(http.StatusOK, resp)
 }

@@ -103,7 +103,7 @@ func (h *Handler) DeleteMCPService(c *gin.Context) {
 	core.HandleUriRequest(c, h.biz.MCP().Delete, nil)
 }
 
-// TestMCPService 测试 MCP 服务连接.
+// TestMCPService 测试 MCP 服务连接（对齐 WeKnora 格式）.
 // @Summary      测试 MCP 服务连接
 // @Description  测试指定 MCP 服务的连接状态
 // @Tags         mcp
@@ -115,7 +115,29 @@ func (h *Handler) DeleteMCPService(c *gin.Context) {
 // @Security     Bearer
 // @Router       /api/v1/mcp-services/{id}/test [post]
 func (h *Handler) TestMCPService(c *gin.Context) {
-	core.HandleUriRequest(c, h.biz.MCP().Test, nil)
+	var req v1.TestMCPServiceRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.biz.MCP().Test(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data": v1.TestMCPServiceResponse{
+				Success: false,
+				Message: "Test failed: " + err.Error(),
+			},
+		})
+		return
+	}
+
+	// 对齐 WeKnora 格式：包装在 data 中
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    resp,
+	})
 }
 
 // GetMCPServiceTools 获取 MCP 服务工具列表.

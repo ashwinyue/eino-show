@@ -20,6 +20,7 @@ type MessageResponse struct {
 	Content       string                   `json:"content"`
 	KnowledgeRefs []map[string]interface{} `json:"knowledge_refs,omitempty"`
 	AgentSteps    []map[string]interface{} `json:"agent_steps,omitempty"`
+	IsCompleted   bool                     `json:"is_completed"`
 	CreatedAt     time.Time                `json:"created_at"`
 }
 

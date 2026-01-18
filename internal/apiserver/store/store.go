@@ -34,6 +34,7 @@ type IStore interface {
 	Tenant() TenantStore
 	Session() SessionStore
 	Message() MessageStore
+	SessionItem() SessionItemStore
 	CustomAgent() CustomAgentStore
 	KnowledgeBase() KnowledgeBaseStore
 	Knowledge() KnowledgeStore
@@ -120,6 +121,11 @@ func (store *datastore) Session() SessionStore {
 // Message 返回一个实现了 MessageStore 接口的实例.
 func (store *datastore) Message() MessageStore {
 	return newMessageStore(store)
+}
+
+// SessionItem 返回一个实现了 SessionItemStore 接口的实例.
+func (store *datastore) SessionItem() SessionItemStore {
+	return newSessionItemStore(store)
 }
 
 // CustomAgent 返回一个实现了 CustomAgentStore 接口的实例.

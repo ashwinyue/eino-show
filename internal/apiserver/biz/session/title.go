@@ -107,26 +107,33 @@ func truncateTitle(content string, maxLen int) string {
 	return string(runes[:maxLen]) + "..."
 }
 
-// generateTitleAsync 异步生成标题并更新会话.
-func (b *sessionBiz) generateTitleAsync(ctx context.Context, sessionID, userMessage string) {
+// GenerateTitleAsync 异步生成标题并更新会话（对齐 WeKnora）.
+func (b *sessionBiz) GenerateTitleAsync(ctx context.Context, sessionID, userMessage string) {
 	go func() {
-		title, err := b.generateTitleWithLLM(ctx, userMessage)
-		if err != nil || title == "" {
-			return
-		}
-
-		// 更新会话标题
-		sessionM, err := b.store.Session().Get(ctx, where.F("id", sessionID))
-		if err != nil {
-			return
-		}
-
-		// 只有在没有标题时才更新
-		if sessionM.Title != nil && *sessionM.Title != "" {
-			return
-		}
-
-		sessionM.Title = &title
-		_ = b.store.Session().Update(ctx, sessionM)
+		_ = b.GenerateTitleSync(ctx, sessionID, userMessage)
 	}()
+}
+
+// GenerateTitleSync 同步生成标题并更新会话，返回生成的标题.
+func (b *sessionBiz) GenerateTitleSync(ctx context.Context, sessionID, userMessage string) string {
+	// 先检查会话是否已有标题
+	sessionM, err := b.store.Session().Get(ctx, where.F("id", sessionID))
+	if err != nil {
+		return ""
+	}
+	if sessionM.Title != nil && *sessionM.Title != "" {
+		return *sessionM.Title
+	}
+
+	// 生成标题
+	title, err := b.generateTitleWithLLM(ctx, userMessage)
+	if err != nil || title == "" {
+		return ""
+	}
+
+	// 更新会话标题
+	sessionM.Title = &title
+	_ = b.store.Session().Update(ctx, sessionM)
+
+	return title
 }

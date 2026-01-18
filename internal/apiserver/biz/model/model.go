@@ -294,11 +294,11 @@ func toModelResponse(m *apim.LLMModelM) *v1.ModelResponse {
 func (b *modelBiz) TestChatModel(ctx context.Context, req *v1.TestChatModelRequest) (*v1.TestChatModelResponse, error) {
 	start := time.Now()
 
-	// 简化实现：检查必要参数是否存在
-	if req.APIKey == "" {
+	// 检查必要参数
+	if req.BaseURL == "" {
 		return &v1.TestChatModelResponse{
 			Success: false,
-			Message: "API Key is required",
+			Message: "Base URL is required",
 		}, nil
 	}
 
@@ -318,10 +318,10 @@ func (b *modelBiz) TestChatModel(ctx context.Context, req *v1.TestChatModelReque
 func (b *modelBiz) TestEmbeddingModel(ctx context.Context, req *v1.TestEmbeddingModelRequest) (*v1.TestEmbeddingModelResponse, error) {
 	start := time.Now()
 
-	if req.APIKey == "" {
+	if req.BaseURL == "" {
 		return &v1.TestEmbeddingModelResponse{
 			Success: false,
-			Message: "API Key is required",
+			Message: "Base URL is required",
 		}, nil
 	}
 
@@ -352,10 +352,10 @@ func (b *modelBiz) TestEmbeddingModel(ctx context.Context, req *v1.TestEmbedding
 func (b *modelBiz) TestRerankModel(ctx context.Context, req *v1.TestRerankModelRequest) (*v1.TestRerankModelResponse, error) {
 	start := time.Now()
 
-	if req.APIKey == "" {
+	if req.BaseURL == "" {
 		return &v1.TestRerankModelResponse{
 			Success: false,
-			Message: "API Key is required",
+			Message: "Base URL is required",
 		}, nil
 	}
 

@@ -3,14 +3,15 @@ package session
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 
-	apimodel "github.com/ashwinyue/eino-show/internal/apiserver/model"
 	"github.com/ashwinyue/eino-show/internal/apiserver/store"
 	"github.com/ashwinyue/eino-show/internal/pkg/agent"
 	"github.com/ashwinyue/eino-show/internal/pkg/agent/enhanced"
@@ -18,9 +19,9 @@ import (
 	"github.com/ashwinyue/eino-show/internal/pkg/agent/prompts"
 	"github.com/ashwinyue/eino-show/internal/pkg/agent/react"
 	"github.com/ashwinyue/eino-show/internal/pkg/agent/router"
-	"github.com/ashwinyue/eino-show/internal/pkg/contextx"
+	agenttool "github.com/ashwinyue/eino-show/internal/pkg/agent/tool"
+	"github.com/ashwinyue/eino-show/internal/pkg/agent/tools"
 	"github.com/ashwinyue/eino-show/internal/pkg/dedup"
-	"github.com/ashwinyue/eino-show/pkg/store/where"
 )
 
 // QAConfig QA 服务配置.
@@ -57,14 +58,16 @@ type AgentQARequest struct {
 	MaxIterations    int
 	Tools            []string
 	History          []*schema.Message
+	WebSearchEnabled bool // 是否启用网络搜索
 }
 
 // ADKAgentResult ADK Agent 结果（用于 handler 层流式处理）.
 type ADKAgentResult struct {
-	Agent     *enhanced.ADKAgent // ADK Agent
-	Messages  []*schema.Message  // 输入消息
-	SessionID string             // 会话 ID
-	MessageID string             // 消息 ID
+	Agent     adk.Agent         // ADK Agent（使用接口类型以支持 ChatModelAgent）
+	Runner    *adk.Runner       // ADK Runner（用于正确处理工具调用事件）
+	Messages  []*schema.Message // 输入消息
+	SessionID string            // 会话 ID
+	MessageID string            // 消息 ID
 }
 
 // qaExecutor QA 执行器（内部实现）.
@@ -120,7 +123,7 @@ func (e *qaExecutor) getADKAgent(ctx context.Context, req *AgentQARequest) (*ADK
 	if systemPrompt == "" {
 		systemPrompt = prompts.BuildSystemPrompt(&prompts.BuildConfig{
 			KnowledgeBases:   buildKBInfos(req.KnowledgeBaseIDs),
-			WebSearchEnabled: false,
+			WebSearchEnabled: req.WebSearchEnabled,
 		})
 	}
 
@@ -145,48 +148,15 @@ func (e *qaExecutor) getADKAgent(ctx context.Context, req *AgentQARequest) (*ADK
 		reactCfg.Tools = e.factory.GetTools(req.Tools)
 	}
 
-	// 从数据库获取模型配置
-	// 优先级：tenant.agent_config > session.agent.config > 默认模型
-	var defaultModel *apimodel.LLMModelM
-	tenantID := contextx.TenantID(ctx)
-
-	// 1. 尝试从 tenant.agent_config 获取 model_id
-	tenant, _ := e.store.Tenant().GetByID(ctx, uint64(tenantID))
-	if tenant != nil && tenant.AgentConfig != nil && *tenant.AgentConfig != "" && *tenant.AgentConfig != "null" {
-		var tenantAgentCfg struct {
-			ModelID string `json:"model_id"`
-		}
-		if json.Unmarshal([]byte(*tenant.AgentConfig), &tenantAgentCfg) == nil && tenantAgentCfg.ModelID != "" {
-			defaultModel, _ = e.store.Model().GetByID(ctx, tenantAgentCfg.ModelID)
-		}
+	// 从数据库获取模型配置（对齐 WeKnora）
+	// 必须指定 model_id，不使用默认模型
+	if req.ModelID == "" {
+		return nil, fmt.Errorf("model_id is required")
 	}
 
-	// 2. 如果 tenant 没有配置，尝试从 session 关联的 agent 获取
-	if defaultModel == nil {
-		session, _ := e.store.Session().Get(ctx, where.F("id", req.SessionID))
-		if session != nil && session.AgentID != nil && *session.AgentID != "" {
-			agent, _ := e.store.CustomAgent().Get(ctx, where.F("id", *session.AgentID))
-			if agent != nil && agent.Config != "" && agent.Config != "{}" {
-				var agentCfg struct {
-					ModelID string `json:"model_id"`
-				}
-				if json.Unmarshal([]byte(agent.Config), &agentCfg) == nil && agentCfg.ModelID != "" {
-					defaultModel, _ = e.store.Model().GetByID(ctx, agentCfg.ModelID)
-				}
-			}
-		}
-	}
-
-	// 3. 如果都没有找到，使用默认模型
-	if defaultModel == nil {
-		var err error
-		defaultModel, err = e.store.Model().GetDefault(ctx, "MODEL_TYPE_LLM")
-		if err != nil {
-			defaultModel, err = e.store.Model().GetDefault(ctx, "llm")
-			if err != nil {
-				return nil, fmt.Errorf("get default model failed: %w", err)
-			}
-		}
+	defaultModel, err := e.store.Model().GetByID(ctx, req.ModelID)
+	if err != nil {
+		return nil, fmt.Errorf("get model failed: %w", err)
 	}
 
 	// 从数据库模型配置创建 ChatModel
@@ -201,25 +171,50 @@ func (e *qaExecutor) getADKAgent(ctx context.Context, req *AgentQARequest) (*ADK
 		return nil, fmt.Errorf("chat model does not support tool calling")
 	}
 
-	// 包装为 ADK Agent
-	adkAgent, err := enhanced.NewADKAgent(ctx, &enhanced.ADKAgentConfig{
+	// 构建工具列表（包含 thinking 工具 + 请求指定工具）
+	toolList := make([]tool.BaseTool, 0, 4)
+	toolList = append(toolList, tools.NewSequentialThinkingTool())
+	toolList = append(toolList, agenttool.NewTodoTool())
+	if len(req.Tools) > 0 {
+		for _, t := range e.factory.GetTools(req.Tools) {
+			toolList = append(toolList, t)
+		}
+	} else {
+		for _, t := range e.factory.GetTools(nil) {
+			toolList = append(toolList, t)
+		}
+	}
+	toolsConfig := adk.ToolsConfig{
+		ToolsNodeConfig: compose.ToolsNodeConfig{
+			Tools: toolList,
+		},
+	}
+
+	// 使用 ADK 内置的 ChatModelAgent（确保正确的流式处理）
+	// 对齐官方示例: a-old/old/eino-examples/adk/intro/http-sse-service/main.go
+	adkAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:        "react_agent",
 		Description: "ReAct Agent for Q&A",
-		EnhancedConfig: &enhanced.AgentConfig{
-			ToolCallingModel: toolCallingModel,
-			SystemPrompt:     systemPrompt,
-			MaxStep:          reactCfg.MaxIterations,
-		},
+		Instruction: systemPrompt,
+		Model:       toolCallingModel,
+		ToolsConfig: toolsConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create ADK agent failed: %w", err)
 	}
+
+	// 创建 ADK Runner（对齐 eino-examples 最佳实践）
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{
+		EnableStreaming: true,
+		Agent:           adkAgent,
+	})
 
 	// 生成消息 ID
 	messageID := fmt.Sprintf("%s-%d", req.SessionID, time.Now().UnixNano())
 
 	return &ADKAgentResult{
 		Agent:     adkAgent,
+		Runner:    runner,
 		Messages:  messages,
 		SessionID: req.SessionID,
 		MessageID: messageID,

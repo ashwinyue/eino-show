@@ -5,7 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/eino-ext/components/tool/duckduckgo/v2"
 	"github.com/cloudwego/eino/components/tool"
@@ -20,8 +24,15 @@ type WebSearch struct {
 
 // NewWebSearch 创建网络搜索工具.
 func NewWebSearch(ctx context.Context) (*WebSearch, error) {
+	// 创建 HTTP Client（支持代理）
+	httpClient := createHTTPClientWithProxy()
+
 	// 创建 DuckDuckGo 搜索工具
-	searchTool, err := duckduckgo.NewTextSearchTool(ctx, &duckduckgo.Config{})
+	searchTool, err := duckduckgo.NewTextSearchTool(ctx, &duckduckgo.Config{
+		HTTPClient: httpClient,
+		Timeout:    30 * time.Second,
+		MaxResults: 10,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create duckduckgo tool: %w", err)
 	}
@@ -29,6 +40,42 @@ func NewWebSearch(ctx context.Context) (*WebSearch, error) {
 	return &WebSearch{
 		tool: searchTool,
 	}, nil
+}
+
+// createHTTPClientWithProxy 创建带代理的 HTTP Client.
+func createHTTPClientWithProxy() *http.Client {
+	// 优先从环境变量读取代理配置
+	proxyURL := os.Getenv("HTTP_PROXY")
+	if proxyURL == "" {
+		proxyURL = os.Getenv("HTTPS_PROXY")
+	}
+	if proxyURL == "" {
+		proxyURL = os.Getenv("http_proxy")
+	}
+	if proxyURL == "" {
+		proxyURL = os.Getenv("https_proxy")
+	}
+
+	// 默认代理配置（可通过环境变量覆盖）
+	if proxyURL == "" {
+		// 检查是否有默认代理端口配置
+		defaultProxy := os.Getenv("WEB_SEARCH_PROXY")
+		if defaultProxy != "" {
+			proxyURL = defaultProxy
+		}
+	}
+
+	transport := &http.Transport{}
+	if proxyURL != "" {
+		if parsed, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(parsed)
+		}
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	}
 }
 
 // 确保 WebSearch 实现了 InvokableTool 接口.

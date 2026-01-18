@@ -155,6 +155,7 @@ func (h *Handler) GetTenantKV(c *gin.Context) {
 
 // UpdateTenantKV 更新租户 KV 配置
 // PUT /api/v1/tenants/kv/:key
+// 前端直接发送配置对象（对齐 WeKnora）
 func (h *Handler) UpdateTenantKV(c *gin.Context) {
 	key := c.Param("key")
 	if key == "" {
@@ -162,15 +163,20 @@ func (h *Handler) UpdateTenantKV(c *gin.Context) {
 		return
 	}
 
-	var req v1.UpdateTenantKVRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// 前端直接发送配置对象，不是 { value: ... } 格式
+	var value map[string]interface{}
+	if err := c.ShouldBindJSON(&value); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	req.Key = key
+
+	req := &v1.UpdateTenantKVRequest{
+		Key:   key,
+		Value: value,
+	}
 
 	tenantID := contextx.TenantID(c.Request.Context())
-	resp, err := h.biz.Tenant().UpdateKV(c.Request.Context(), tenantID, &req)
+	resp, err := h.biz.Tenant().UpdateKV(c.Request.Context(), tenantID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -24,13 +25,23 @@ type SessionBiz interface {
 	List(ctx context.Context, req *v1.ListSessionsRequest) (*v1.ListSessionsResponse, error)
 	Update(ctx context.Context, id string, req *v1.UpdateSessionRequest) (*v1.UpdateSessionResponse, error)
 	Delete(ctx context.Context, req *v1.DeleteSessionRequest) (*v1.DeleteSessionResponse, error)
-	// GetADKAgent 获取 ADK Agent 用于流式处理
-	GetADKAgent(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (*ADKAgentResult, error)
+	// GetADKRunner 获取 ADK Runner 用于流式处理（Eino ADK 标准方式）
+	GetADKRunner(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (interface{}, string, []*schema.Message, error)
 	GenerateTitle(ctx context.Context, sessionID string, req *v1.GenerateTitleRequest) (string, error)
-	SearchKnowledge(ctx context.Context, sessionID string, req *v1.SearchKnowledgeRequest) (interface{}, error)
+	// GenerateTitleAsync 异步生成会话标题（对齐 WeKnora）
+	GenerateTitleAsync(ctx context.Context, sessionID, userMessage string)
+	// GenerateTitleSync 同步生成会话标题并返回（用于 SSE 事件）
+	GenerateTitleSync(ctx context.Context, sessionID, userMessage string) string
+	SearchKnowledge(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (interface{}, error)
 	ClearContext(ctx context.Context, sessionID string) error
 	GetMessages(ctx context.Context, sessionID string) ([]*v1.MessageResponse, error)
+	// GetMessagesWithPagination 获取会话消息（支持分页，对齐 WeKnora）
+	GetMessagesWithPagination(ctx context.Context, sessionID, limit, beforeTime string) ([]*v1.MessageResponse, error)
 	DeleteMessage(ctx context.Context, sessionID, messageID string) error
+	// SaveMessage 保存消息到数据库（对齐 WeKnora）
+	SaveMessage(ctx context.Context, sessionID, role, content, requestID string) (*model.MessageM, error)
+	// UpdateMessageContent 更新消息内容和 agent_steps（用于流式累积）
+	UpdateMessageContent(ctx context.Context, messageID, content string, agentSteps []v1.AgentStep, isCompleted bool) error
 }
 
 type sessionBiz struct {
@@ -55,7 +66,7 @@ func NewWithQA(ctx context.Context, s store.IStore, qaCfg *QAConfig) (SessionBiz
 
 // New 创建 Session Biz（不带 QA 功能）.
 func New(s store.IStore) SessionBiz {
-	return &sessionBiz{store: s, ctxManager: llmcontext.NewDefaultManager()}
+	return &sessionBiz{store: s, ctxManager: llmcontext.NewDefaultManager(), qaExecutor: nil}
 }
 
 // NewWithRedis 创建带 Redis 上下文存储的 Session Biz.
@@ -111,7 +122,8 @@ func (b *sessionBiz) Create(ctx context.Context, req *v1.CreateSessionRequest) (
 	}
 
 	return &v1.CreateSessionResponse{
-		Session: toSessionResponse(sessionM),
+		Success: true,
+		Data:    toSessionResponse(sessionM),
 	}, nil
 }
 
@@ -122,7 +134,8 @@ func (b *sessionBiz) Get(ctx context.Context, req *v1.GetSessionRequest) (*v1.Ge
 	}
 
 	return &v1.GetSessionResponse{
-		Session: toSessionResponse(sessionM),
+		Success: true,
+		Data:    toSessionResponse(sessionM),
 	}, nil
 }
 
@@ -144,8 +157,11 @@ func (b *sessionBiz) List(ctx context.Context, req *v1.ListSessionsRequest) (*v1
 	}
 
 	return &v1.ListSessionsResponse{
-		Sessions: sessions,
+		Success:  true,
+		Data:     sessions,
 		Total:    total,
+		Page:     int64(req.Page),
+		PageSize: int64(req.PageSize),
 	}, nil
 }
 
@@ -169,7 +185,8 @@ func (b *sessionBiz) Update(ctx context.Context, id string, req *v1.UpdateSessio
 	}
 
 	return &v1.UpdateSessionResponse{
-		Session: toSessionResponse(sessionM),
+		Success: true,
+		Data:    toSessionResponse(sessionM),
 	}, nil
 }
 
@@ -239,12 +256,9 @@ func (b *sessionBiz) GenerateTitle(ctx context.Context, sessionID string, req *v
 	return title, nil
 }
 
-func (b *sessionBiz) SearchKnowledge(ctx context.Context, sessionID string, req *v1.SearchKnowledgeRequest) (interface{}, error) {
+func (b *sessionBiz) SearchKnowledge(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (interface{}, error) {
 	// 从数据库搜索知识分块
 	kbIDs := req.KnowledgeBaseIDs
-	if len(kbIDs) == 0 && req.KnowledgeBaseID != "" {
-		kbIDs = []string{req.KnowledgeBaseID}
-	}
 
 	if len(kbIDs) == 0 {
 		return map[string]interface{}{"results": []interface{}{}, "total": 0}, nil
@@ -321,7 +335,8 @@ func (b *sessionBiz) ClearContext(ctx context.Context, sessionID string) error {
 	return b.ctxManager.ClearContext(ctx, sessionID)
 }
 
-// SaveMessage 保存消息到数据库.
+// SaveMessage 保存消息到数据库（对齐 WeKnora 实现）.
+// 在事务中同时创建 Message 和 SessionItem 记录，确保数据一致性.
 func (b *sessionBiz) SaveMessage(ctx context.Context, sessionID, role, content, requestID string) (*model.MessageM, error) {
 	now := time.Now()
 	msg := &model.MessageM{
@@ -336,15 +351,16 @@ func (b *sessionBiz) SaveMessage(ctx context.Context, sessionID, role, content, 
 		UpdatedAt:           &now,
 	}
 
-	if err := b.store.Message().Create(ctx, msg); err != nil {
+	// 使用 CreateWithSessionItem 在事务中同时创建 Message 和 SessionItem
+	if err := b.store.Message().CreateWithSessionItem(ctx, msg); err != nil {
 		return nil, err
 	}
 
 	return msg, nil
 }
 
-// UpdateMessageContent 更新消息内容（用于流式累积）.
-func (b *sessionBiz) UpdateMessageContent(ctx context.Context, messageID, content string, isCompleted bool) error {
+// UpdateMessageContent 更新消息内容和 agent_steps（用于流式累积）.
+func (b *sessionBiz) UpdateMessageContent(ctx context.Context, messageID, content string, agentSteps []v1.AgentStep, isCompleted bool) error {
 	msg, err := b.store.Message().Get(ctx, where.F("id", messageID))
 	if err != nil {
 		return err
@@ -354,6 +370,15 @@ func (b *sessionBiz) UpdateMessageContent(ctx context.Context, messageID, conten
 	msg.IsCompleted = isCompleted
 	now := time.Now()
 	msg.UpdatedAt = &now
+
+	// 保存 agent_steps 到数据库
+	if len(agentSteps) > 0 {
+		stepsJSON, err := json.Marshal(agentSteps)
+		if err == nil {
+			stepsStr := string(stepsJSON)
+			msg.AgentSteps = &stepsStr
+		}
+	}
 
 	return b.store.Message().Update(ctx, msg)
 }
@@ -393,13 +418,102 @@ func (b *sessionBiz) GetMessages(ctx context.Context, sessionID string) ([]*v1.M
 	result := make([]*v1.MessageResponse, 0, len(messages))
 	for _, m := range messages {
 		resp := &v1.MessageResponse{
-			ID:        m.ID,
-			SessionID: m.SessionID,
-			Role:      m.Role,
-			Content:   m.Content,
+			ID:          m.ID,
+			SessionID:   m.SessionID,
+			Role:        m.Role,
+			Content:     m.Content,
+			IsCompleted: m.IsCompleted,
 		}
 		if m.CreatedAt != nil {
 			resp.CreatedAt = *m.CreatedAt
+		}
+		// 解析 agent_steps
+		if m.AgentSteps != nil && *m.AgentSteps != "" {
+			var steps []map[string]interface{}
+			if json.Unmarshal([]byte(*m.AgentSteps), &steps) == nil {
+				resp.AgentSteps = steps
+			}
+		}
+		result = append(result, resp)
+	}
+	return result, nil
+}
+
+// GetMessagesWithPagination 获取会话消息（支持分页，对齐 WeKnora GetMessagesBySessionBeforeTime）.
+// 参数:
+//   - sessionID: 会话 ID
+//   - limit: 每次加载的消息数量
+//   - beforeTime: 时间游标，返回此时间之前的消息
+func (b *sessionBiz) GetMessagesWithPagination(ctx context.Context, sessionID, limit, beforeTime string) ([]*v1.MessageResponse, error) {
+	// 如果没有指定分页参数，返回所有消息
+	if limit == "" && beforeTime == "" {
+		return b.GetMessages(ctx, sessionID)
+	}
+
+	// 解析 limit
+	limitNum := 20 // 默认 20 条
+	if limit != "" {
+		_, err := fmt.Sscanf(limit, "%d", &limitNum)
+		if err != nil {
+			limitNum = 20
+		}
+	}
+
+	// 解析 beforeTime
+	var beforeTimeParsed time.Time
+	var parseErr error
+	if beforeTime != "" {
+		beforeTimeParsed, parseErr = time.Parse(time.RFC3339Nano, beforeTime)
+		if parseErr != nil {
+			// 如果解析失败，使用当前时间
+			beforeTimeParsed = time.Now()
+		}
+	} else {
+		beforeTimeParsed = time.Now()
+	}
+
+	// 从数据库获取指定时间之前的消息
+	var messages []*model.MessageM
+	var err error
+
+	// 尝试使用分页查询
+	if beforeTime != "" {
+		messages, err = b.store.Message().GetBySessionIDBeforeTime(ctx, sessionID, beforeTimeParsed, limitNum)
+	} else {
+		// 如果没有 beforeTime，使用 GetBySessionID 限制数量
+		allMessages, err := b.store.Message().GetBySessionID(ctx, sessionID)
+		if err == nil {
+			// 取最早的 limitNum 条
+			if len(allMessages) > limitNum {
+				messages = allMessages[:limitNum]
+			} else {
+				messages = allMessages
+			}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*v1.MessageResponse, 0, len(messages))
+	for _, m := range messages {
+		resp := &v1.MessageResponse{
+			ID:          m.ID,
+			SessionID:   m.SessionID,
+			Role:        m.Role,
+			Content:     m.Content,
+			IsCompleted: m.IsCompleted,
+		}
+		if m.CreatedAt != nil {
+			resp.CreatedAt = *m.CreatedAt
+		}
+		// 解析 agent_steps
+		if m.AgentSteps != nil && *m.AgentSteps != "" {
+			var steps []map[string]interface{}
+			if json.Unmarshal([]byte(*m.AgentSteps), &steps) == nil {
+				resp.AgentSteps = steps
+			}
 		}
 		result = append(result, resp)
 	}
@@ -411,19 +525,25 @@ func (b *sessionBiz) DeleteMessage(ctx context.Context, sessionID, messageID str
 	return b.store.Message().Delete(ctx, where.NewWhere().F("id", messageID).F("session_id", sessionID))
 }
 
-// GetADKAgent 获取 ADK Agent 用于流式处理.
-func (b *sessionBiz) GetADKAgent(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (*ADKAgentResult, error) {
+// GetADKRunner 获取 ADK Runner 用于流式处理（Eino ADK 标准方式）.
+// 返回: Runner, MessageID, Messages, Error
+func (b *sessionBiz) GetADKRunner(ctx context.Context, sessionID string, req *v1.CreateKnowledgeQARequest) (interface{}, string, []*schema.Message, error) {
 	if b.qaExecutor == nil {
-		return nil, fmt.Errorf("QA not configured")
+		return nil, "", nil, fmt.Errorf("QA not configured")
 	}
-	return b.qaExecutor.getADKAgent(ctx, &AgentQARequest{
+	result, err := b.qaExecutor.getADKAgent(ctx, &AgentQARequest{
 		SessionID:        sessionID,
 		Query:            req.Query,
 		AgentType:        "react",
 		KnowledgeBaseIDs: req.KnowledgeBaseIDs,
 		KnowledgeIDs:     req.KnowledgeIDs,
 		ModelID:          req.SummaryModelID,
+		WebSearchEnabled: req.WebSearchEnabled,
 	})
+	if err != nil {
+		return nil, "", nil, err
+	}
+	return result.Runner, result.MessageID, result.Messages, nil
 }
 
 // toSessionResponse 将 model.SessionM 转换为 v1.SessionResponse
@@ -437,6 +557,9 @@ func toSessionResponse(s *model.SessionM) *v1.SessionResponse {
 	}
 	if s.Description != nil {
 		resp.Description = *s.Description
+	}
+	if s.AgentID != nil {
+		resp.AgentID = *s.AgentID
 	}
 	if s.CreatedAt != nil {
 		resp.CreatedAt = *s.CreatedAt

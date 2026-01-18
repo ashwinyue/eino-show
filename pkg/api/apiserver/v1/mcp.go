@@ -16,9 +16,10 @@ type CreateMCPServiceRequest struct {
 	Config      map[string]interface{} `json:"config"`
 }
 
-// CreateMCPServiceResponse 创建 MCP 服务响应
+// CreateMCPServiceResponse 创建 MCP 服务响应（对齐 WeKnora）
 type CreateMCPServiceResponse struct {
-	MCPService *MCPServiceResponse `json:"mcp_service"`
+	Success bool                `json:"success"`
+	Data    *MCPServiceResponse `json:"data"`
 }
 
 // GetMCPServiceRequest 获取 MCP 服务请求
@@ -26,9 +27,10 @@ type GetMCPServiceRequest struct {
 	Id string `uri:"id" binding:"required"`
 }
 
-// GetMCPServiceResponse 获取 MCP 服务响应
+// GetMCPServiceResponse 获取 MCP 服务响应（对齐 WeKnora）
 type GetMCPServiceResponse struct {
-	MCPService *MCPServiceResponse `json:"mcp_service"`
+	Success bool                `json:"success"`
+	Data    *MCPServiceResponse `json:"data"`
 }
 
 // ListMCPServicesRequest MCP 服务列表请求
@@ -37,10 +39,11 @@ type ListMCPServicesRequest struct {
 	PageSize int `form:"page_size"`
 }
 
-// ListMCPServicesResponse MCP 服务列表响应
+// ListMCPServicesResponse MCP 服务列表响应（对齐 WeKnora）
 type ListMCPServicesResponse struct {
-	MCPServices []*MCPServiceResponse `json:"mcp_services"`
-	Total       int64                 `json:"total"`
+	Success bool                  `json:"success"`
+	Data    []*MCPServiceResponse `json:"data"`
+	Total   int64                 `json:"total,omitempty"`
 }
 
 // UpdateMCPServiceRequest 更新 MCP 服务请求
@@ -55,9 +58,10 @@ type UpdateMCPServiceRequest struct {
 	Config      map[string]interface{} `json:"config"`
 }
 
-// UpdateMCPServiceResponse 更新 MCP 服务响应
+// UpdateMCPServiceResponse 更新 MCP 服务响应（对齐 WeKnora）
 type UpdateMCPServiceResponse struct {
-	MCPService *MCPServiceResponse `json:"mcp_service"`
+	Success bool                `json:"success"`
+	Data    *MCPServiceResponse `json:"data"`
 }
 
 // DeleteMCPServiceRequest 删除 MCP 服务请求
@@ -86,9 +90,10 @@ type GetMCPServiceToolsRequest struct {
 	Id string `uri:"id" binding:"required"`
 }
 
-// GetMCPServiceToolsResponse 获取 MCP 服务工具响应
+// GetMCPServiceToolsResponse 获取 MCP 服务工具响应（对齐 WeKnora）
 type GetMCPServiceToolsResponse struct {
-	Tools []*MCPToolResponse `json:"tools"`
+	Success bool               `json:"success"`
+	Data    []*MCPToolResponse `json:"data"`
 }
 
 // MCPServiceResponse MCP 服务响应

@@ -257,6 +257,10 @@ start_app() {
     export DB_HOST=localhost
     export REDIS_ADDR=localhost:6379
 
+    # 设置 HTTP 代理（用于 web_search 工具访问外网）
+    export HTTP_PROXY=http://127.0.0.1:7897
+    export HTTPS_PROXY=http://127.0.0.1:7897
+
     # 自动 kill 8080 端口上的进程（多次尝试确保释放）
     for i in 1 2 3; do
         if lsof -i :8080 &> /dev/null; then

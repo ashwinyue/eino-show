@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LoadMessages 加载会话消息
+// LoadMessages 加载会话消息（支持分页，对齐 WeKnora）
 // GET /api/v1/messages/:session_id/load
 // Query: limit, before_time
 func (h *Handler) LoadMessages(c *gin.Context) {
@@ -18,8 +18,11 @@ func (h *Handler) LoadMessages(c *gin.Context) {
 		return
 	}
 
-	// 获取会话消息
-	messages, err := h.biz.Session().GetMessages(c.Request.Context(), sessionID)
+	limit := c.Query("limit")
+	beforeTime := c.Query("before_time")
+
+	// 获取会话消息（支持分页参数）
+	messages, err := h.biz.Session().GetMessagesWithPagination(c.Request.Context(), sessionID, limit, beforeTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

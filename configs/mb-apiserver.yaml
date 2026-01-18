@@ -106,3 +106,24 @@ llm:
   api_key: sk-a6aaf8beba18425e9942c4a33ae58caf
   # API 基础 URL
   base_url: https://dashscope.aliyuncs.com/api/v1
+
+# Web 搜索配置
+web-search:
+  # 可用搜索引擎列表
+  providers:
+    - id: "duckduckgo"
+      name: "DuckDuckGo"
+      free: true
+      requires_api_key: false
+      description: "DuckDuckGo 搜索引擎，无需 API Key"
+  # 默认配置
+  default:
+    provider: "duckduckgo"
+    max_results: 5
+    include_date: true
+    compression_method: "none"
+    blacklist: []
+  # 全局超时设置（秒）
+  timeout: 10
+  # 代理设置（留空则不使用代理）
+  proxy_url: ""

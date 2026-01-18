@@ -57,7 +57,7 @@ func (b *knowledgeBiz) CreateKB(ctx context.Context, req *v1.CreateKnowledgeBase
 	}
 
 	return &v1.CreateKnowledgeBaseResponse{
-		KnowledgeBase: toKnowledgeBaseResponse(kbM),
+		Data: toKnowledgeBaseResponse(kbM),
 	}, nil
 }
 
@@ -68,7 +68,7 @@ func (b *knowledgeBiz) GetKB(ctx context.Context, req *v1.GetKnowledgeBaseReques
 	}
 
 	return &v1.GetKnowledgeBaseResponse{
-		KnowledgeBase: toKnowledgeBaseResponse(kbM),
+		Data: toKnowledgeBaseResponse(kbM),
 	}, nil
 }
 
@@ -90,8 +90,8 @@ func (b *knowledgeBiz) ListKB(ctx context.Context, req *v1.ListKnowledgeBasesReq
 	}
 
 	return &v1.ListKnowledgeBasesResponse{
-		KnowledgeBases: kbs,
-		Total:          total,
+		Data:  kbs,
+		Total: total,
 	}, nil
 }
 
@@ -115,7 +115,7 @@ func (b *knowledgeBiz) UpdateKB(ctx context.Context, id string, req *v1.UpdateKn
 	}
 
 	return &v1.UpdateKnowledgeBaseResponse{
-		KnowledgeBase: toKnowledgeBaseResponse(kbM),
+		Data: toKnowledgeBaseResponse(kbM),
 	}, nil
 }
 
@@ -153,8 +153,8 @@ func (b *knowledgeBiz) ListKnowledges(ctx context.Context, kbID string, req *v1.
 	}
 
 	return &v1.ListKnowledgesResponse{
-		Knowledge: knowledges,
-		Total:     total,
+		Data:  knowledges,
+		Total: total,
 	}, nil
 }
 
@@ -182,8 +182,9 @@ func (b *knowledgeBiz) ListChunks(ctx context.Context, knowledgeID string, req *
 	}
 
 	return &v1.ListChunksResponse{
-		Chunks: chunks,
-		Total:  total,
+		Success: true,
+		Data:    chunks,
+		Total:   total,
 	}, nil
 }
 
@@ -194,7 +195,7 @@ func (b *knowledgeBiz) GetChunk(ctx context.Context, req *v1.GetChunkRequest) (*
 	}
 
 	return &v1.GetChunkResponse{
-		Chunk: toChunkResponse(chunkM),
+		Data: toChunk(chunkM),
 	}, nil
 }
 
@@ -213,7 +214,7 @@ func (b *knowledgeBiz) UpdateChunk(ctx context.Context, id string, req *v1.Updat
 	}
 
 	return &v1.UpdateChunkResponse{
-		Chunk: toChunkResponse(chunkM),
+		Data: toChunk(chunkM),
 	}, nil
 }
 
@@ -235,7 +236,7 @@ func (b *knowledgeBiz) DeleteChunksByKnowledgeID(ctx context.Context, knowledgeI
 func (b *knowledgeBiz) HybridSearch(ctx context.Context, req *v1.HybridSearchRequest) (*v1.HybridSearchResponse, error) {
 	kbID := req.KnowledgeBaseId
 	if kbID == "" {
-		return &v1.HybridSearchResponse{Results: []*v1.SearchResultItem{}}, nil
+		return &v1.HybridSearchResponse{Data: []*v1.SearchResultItem{}}, nil
 	}
 
 	// 获取知识库下的所有分块
@@ -324,8 +325,8 @@ func (b *knowledgeBiz) HybridSearch(ctx context.Context, req *v1.HybridSearchReq
 	}
 
 	return &v1.HybridSearchResponse{
-		Results: results,
-		Total:   int64(len(results)),
+		Data:  results,
+		Total: int64(len(results)),
 	}, nil
 }
 
@@ -476,10 +477,40 @@ func toKnowledgeBaseResponse(kb *model.KnowledgeBaseM) *v1.KnowledgeBaseResponse
 	return resp
 }
 
+// toKnowledgeBase 将 model.KnowledgeBaseM 转换为 v1.KnowledgeBase（完整版）
+func toKnowledgeBase(kb *model.KnowledgeBaseM) *v1.KnowledgeBase {
+	resp := &v1.KnowledgeBase{
+		ID:   kb.ID,
+		Name: kb.Name,
+		Description: func() string {
+			if kb.Description != nil {
+				return *kb.Description
+			}
+			return ""
+		}(),
+		Type:        kb.Type,
+		TenantID:    uint64(kb.TenantID),
+		IsTemporary: false,
+		CreatedAt: func() time.Time {
+			if kb.CreatedAt != nil {
+				return *kb.CreatedAt
+			}
+			return time.Time{}
+		}(),
+		UpdatedAt: func() time.Time {
+			if kb.UpdatedAt != nil {
+				return *kb.UpdatedAt
+			}
+			return time.Time{}
+		}(),
+	}
+	return resp
+}
+
 func toKnowledgeResponse(k *model.KnowledgeM) *v1.KnowledgeResponse {
 	resp := &v1.KnowledgeResponse{
 		ID:     k.ID,
-		KbID:   k.KnowledgeBaseID,
+		KBID:   k.KnowledgeBaseID,
 		Title:  k.Title,
 		Type:   k.Type,
 		Status: k.ParseStatus,
@@ -505,6 +536,29 @@ func toChunkResponse(c *model.ChunkM) *v1.ChunkResponse {
 	}
 	if c.CreatedAt != nil {
 		resp.CreatedAt = *c.CreatedAt
+	}
+	return resp
+}
+
+// toChunk 将 model.ChunkM 转换为 v1.Chunk（完整版）
+func toChunk(c *model.ChunkM) *v1.Chunk {
+	resp := &v1.Chunk{
+		ID:          c.ID,
+		KnowledgeID: c.KnowledgeID,
+		Content:     c.Content,
+		ChunkIndex:  int(c.ChunkIndex),
+		CreatedAt: func() time.Time {
+			if c.CreatedAt != nil {
+				return *c.CreatedAt
+			}
+			return time.Time{}
+		}(),
+		UpdatedAt: func() time.Time {
+			if c.UpdatedAt != nil {
+				return *c.UpdatedAt
+			}
+			return time.Time{}
+		}(),
 	}
 	return resp
 }

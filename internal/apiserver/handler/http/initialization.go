@@ -161,7 +161,7 @@ func (h *Handler) ListDownloadTasks(c *gin.Context) {
 	})
 }
 
-// CheckRemoteModel 检查远程模型
+// CheckRemoteModel 检查远程模型（对齐 WeKnora 格式）
 // POST /api/v1/initialization/remote/check
 func (h *Handler) CheckRemoteModel(c *gin.Context) {
 	var req v1.TestChatModelRequest
@@ -175,13 +175,17 @@ func (h *Handler) CheckRemoteModel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 对齐 WeKnora 响应格式：data 中使用 available 字段
 	c.JSON(http.StatusOK, gin.H{
-		"success": resp.Success,
-		"data":    resp,
+		"success": true,
+		"data": gin.H{
+			"available": resp.Success,
+			"message":   resp.Message,
+		},
 	})
 }
 
-// TestEmbeddingModel 测试 Embedding 模型
+// TestEmbeddingModel 测试 Embedding 模型（对齐 WeKnora 格式）
 // POST /api/v1/initialization/embedding/test
 func (h *Handler) TestEmbeddingModel(c *gin.Context) {
 	var req v1.TestEmbeddingModelRequest
@@ -195,13 +199,21 @@ func (h *Handler) TestEmbeddingModel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 对齐 WeKnora 响应格式：data 中使用 available 字段
+	dataFields := gin.H{
+		"available": resp.Success,
+		"message":   resp.Message,
+	}
+	if resp.Dimension > 0 {
+		dataFields["dimension"] = resp.Dimension
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"success": resp.Success,
-		"data":    resp,
+		"success": true,
+		"data":    dataFields,
 	})
 }
 
-// CheckRerankModel 检查 Rerank 模型
+// CheckRerankModel 检查 Rerank 模型（对齐 WeKnora 格式）
 // POST /api/v1/initialization/rerank/check
 func (h *Handler) CheckRerankModel(c *gin.Context) {
 	var req v1.TestRerankModelRequest
@@ -215,9 +227,13 @@ func (h *Handler) CheckRerankModel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 对齐 WeKnora 响应格式：data 中使用 available 字段
 	c.JSON(http.StatusOK, gin.H{
-		"success": resp.Success,
-		"data":    resp,
+		"success": true,
+		"data": gin.H{
+			"available": resp.Success,
+			"message":   resp.Message,
+		},
 	})
 }
 

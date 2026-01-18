@@ -186,10 +186,21 @@ func (b *DynamicPromptBuilder) sortFragments() []*PromptFragment {
 const DefaultAmbiguousPrompt = `The user's query seems ambiguous. Please ask clarifying questions before proceeding.
 Be specific about what information you need to better understand the user's intent.`
 
-// DefaultToolsPrompt 默认工具使用提示.
-const DefaultToolsPrompt = `You have access to the following tools: {tools}
+// DefaultToolsPrompt 默认工具使用提示（对齐 WeKnora "ALWAYS Think First" 规则）.
+const DefaultToolsPrompt = `You have access to following tools: {tools}
 
-Use tools when necessary to complete the user's request. Always explain what you're doing before calling a tool.`
+## Critical Rules (MANDATORY)
+
+1. **ALWAYS Think First:** Before answering ANY question, you MUST use the "thinking" tool to:
+   - Break down the problem into steps
+   - Plan your approach
+   - Estimate what information you need
+2. **Show Your Work:** Users want to see your reasoning process. Use "thinking" to explain your logic.
+3. **Iterate When Needed:** If your initial answer is incomplete, use "thinking" again to refine.
+
+### Tools Usage Guidelines
+
+- Use tools when necessary to complete the user's request. Always explain what you're doing before calling a tool.`
 
 // DefaultKnowledgePrompt 默认知识引用提示.
 const DefaultKnowledgePrompt = `Here is relevant knowledge from the knowledge base:

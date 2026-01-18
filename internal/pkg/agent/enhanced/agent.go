@@ -201,8 +201,30 @@ func addExperienceNode(graph *compose.Graph[[]*schema.Message, *schema.Message],
 
 // addPromptBuilderNode 添加动态 Prompt 构建节点.
 func addPromptBuilderNode(graph *compose.Graph[[]*schema.Message, *schema.Message], config *AgentConfig) error {
+	// 如果没有 DynamicPromptBuilder 但有 SystemPrompt，添加一个简单的系统提示词节点
 	if config.DynamicPromptBuilder == nil {
-		return nil
+		if config.SystemPrompt == "" {
+			return nil
+		}
+		// 添加系统提示词到消息开头
+		lambda := func(ctx context.Context, input []*schema.Message) ([]*schema.Message, error) {
+			// 检查输入消息是否已经包含系统提示词
+			hasSystemPrompt := false
+			for _, msg := range input {
+				if msg.Role == schema.System {
+					hasSystemPrompt = true
+					break
+				}
+			}
+			if hasSystemPrompt {
+				return input, nil
+			}
+			// 添加系统提示词
+			result := make([]*schema.Message, 0, len(input)+1)
+			result = append(result, schema.SystemMessage(config.SystemPrompt))
+			return append(result, input...), nil
+		}
+		return graph.AddLambdaNode(nodeKeyPromptBuilder, compose.InvokableLambda(lambda))
 	}
 
 	lambda := func(ctx context.Context, input []*schema.Message) ([]*schema.Message, error) {
@@ -261,7 +283,24 @@ func addModelNode(graph *compose.Graph[[]*schema.Message, *schema.Message], conf
 	}
 
 	if config.ToolCallingModel != nil {
-		return graph.AddChatModelNode(nodeKeyModel, config.ToolCallingModel, compose.WithStatePreHandler(modelPreHandle))
+		chatModel := config.ToolCallingModel
+		// 绑定工具到模型
+		if len(config.ToolsConfig.Tools) > 0 {
+			toolInfos := make([]*schema.ToolInfo, 0, len(config.ToolsConfig.Tools))
+			for _, t := range config.ToolsConfig.Tools {
+				info, err := t.Info(context.Background())
+				if err != nil {
+					return fmt.Errorf("failed to get tool info: %w", err)
+				}
+				toolInfos = append(toolInfos, info)
+			}
+			modelWithTools, err := config.ToolCallingModel.WithTools(toolInfos)
+			if err != nil {
+				return fmt.Errorf("failed to bind tools: %w", err)
+			}
+			chatModel = modelWithTools
+		}
+		return graph.AddChatModelNode(nodeKeyModel, chatModel, compose.WithStatePreHandler(modelPreHandle))
 	}
 	if config.ChatModel != nil {
 		return graph.AddChatModelNode(nodeKeyModel, config.ChatModel, compose.WithStatePreHandler(modelPreHandle))
@@ -328,6 +367,7 @@ func addExperienceBranch(graph *compose.Graph[[]*schema.Message, *schema.Message
 	}
 
 	// 快速意图分支条件
+	hasPromptBuilder := config.DynamicPromptBuilder != nil || config.SystemPrompt != ""
 	branchCondition := func(ctx context.Context, input []*schema.Message) (string, error) {
 		var exp *router.Experience
 		_ = compose.ProcessState(ctx, func(ctx context.Context, state *State) error {
@@ -338,14 +378,14 @@ func addExperienceBranch(graph *compose.Graph[[]*schema.Message, *schema.Message
 		if exp != nil && exp.Type == router.ExperienceTypeFastIntent && exp.FastIntentConfig != nil {
 			return nodeKeyFastIntent, nil
 		}
-		if config.DynamicPromptBuilder != nil {
+		if hasPromptBuilder {
 			return nodeKeyPromptBuilder, nil
 		}
 		return nodeKeyModel, nil
 	}
 
 	endNodes := map[string]bool{nodeKeyFastIntent: true, nodeKeyModel: true}
-	if config.DynamicPromptBuilder != nil {
+	if hasPromptBuilder {
 		endNodes[nodeKeyPromptBuilder] = true
 	}
 
@@ -358,8 +398,15 @@ func addExperienceBranch(graph *compose.Graph[[]*schema.Message, *schema.Message
 
 // addPromptToModelEdge 添加 Prompt 到 Model 的边.
 func addPromptToModelEdge(graph *compose.Graph[[]*schema.Message, *schema.Message], config *AgentConfig, prevNode string) error {
-	if config.DynamicPromptBuilder != nil {
-		if prevNode != "" && prevNode != nodeKeyExperience && config.ExperienceManager == nil {
+	// 有 DynamicPromptBuilder 或者有 SystemPrompt 时，都需要经过 prompt_builder 节点
+	hasPromptBuilder := config.DynamicPromptBuilder != nil || config.SystemPrompt != ""
+
+	if hasPromptBuilder {
+		if prevNode == "" {
+			if err := graph.AddEdge(compose.START, nodeKeyPromptBuilder); err != nil {
+				return err
+			}
+		} else if prevNode != nodeKeyExperience && config.ExperienceManager == nil {
 			if err := graph.AddEdge(prevNode, nodeKeyPromptBuilder); err != nil {
 				return err
 			}

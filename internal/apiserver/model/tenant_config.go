@@ -212,18 +212,33 @@ func (c *ContextConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-// WebSearchConfig 网络搜索配置
+// WebSearchConfig 网络搜索配置（对齐 WeKnora）
 type WebSearchConfig struct {
 	// Enabled 是否启用
 	Enabled bool `json:"enabled"`
-	// Provider 搜索提供商
+	// Provider 搜索引擎提供商ID
 	Provider string `json:"provider"`
-	// APIKey API 密钥
+	// APIKey API密钥（如果需要）
 	APIKey string `json:"api_key"`
-	// MaxResults 最大结果数
+	// MaxResults 最大搜索结果数
 	MaxResults int `json:"max_results"`
-	// SearchEngineID 搜索引擎 ID（Google CSE）
+	// SearchEngineID 搜索引擎ID
 	SearchEngineID string `json:"search_engine_id"`
+	// IncludeDate 是否包含日期
+	IncludeDate bool `json:"include_date"`
+	// CompressionMethod 压缩方法：none, summary, extract, rag
+	CompressionMethod string `json:"compression_method"`
+	// Blacklist 黑名单规则列表
+	Blacklist []string `json:"blacklist"`
+	// RAG压缩相关配置
+	// EmbeddingModelID 嵌入模型ID（用于RAG压缩）
+	EmbeddingModelID string `json:"embedding_model_id,omitempty"`
+	// EmbeddingDimension 嵌入维度（用于RAG压缩）
+	EmbeddingDimension int `json:"embedding_dimension,omitempty"`
+	// RerankModelID 重排模型ID（用于RAG压缩）
+	RerankModelID string `json:"rerank_model_id,omitempty"`
+	// DocumentFragments 文档片段数量（用于RAG压缩）
+	DocumentFragments int `json:"document_fragments,omitempty"`
 }
 
 // Value 实现 driver.Valuer 接口

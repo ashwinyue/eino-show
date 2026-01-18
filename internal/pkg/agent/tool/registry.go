@@ -35,6 +35,20 @@ func (r *Registry) Register(t InvokableTool) {
 	r.tools[info.Name] = t
 }
 
+// RegisterWithAlias 注册工具并添加别名.
+func (r *Registry) RegisterWithAlias(t InvokableTool, aliases ...string) {
+	if t == nil {
+		return
+	}
+	info, _ := t.Info(context.Background())
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tools[info.Name] = t
+	for _, alias := range aliases {
+		r.tools[alias] = t
+	}
+}
+
 // Unregister 注销一个工具.
 func (r *Registry) Unregister(name string) {
 	r.mu.Lock()
@@ -67,9 +81,20 @@ func (r *Registry) GetAllTools(_ context.Context) []InvokableTool {
 }
 
 // GetToolsByNames 根据名称列表获取工具.
+// 如果 names 为空或 nil，返回所有工具.
 func (r *Registry) GetToolsByNames(names []string) []InvokableTool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
+	// 如果 names 为空，返回所有工具
+	if len(names) == 0 {
+		result := make([]InvokableTool, 0, len(r.tools))
+		for _, t := range r.tools {
+			result = append(result, t)
+		}
+		return result
+	}
+
 	result := make([]InvokableTool, 0, len(names))
 	for _, name := range names {
 		if t, ok := r.tools[name]; ok {

@@ -55,15 +55,24 @@ type ContextConfig struct {
 	EnableForAllSessions bool   `json:"enable_for_all_sessions"`
 }
 
-// WebSearchConfig 网络搜索配置
+// WebSearchConfig 网络搜索配置（对齐 WeKnora）
 type WebSearchConfig struct {
-	Enabled        bool   `json:"enabled"`
-	Provider       string `json:"provider"`
-	MaxResults     int    `json:"max_results"`
-	SearchEngineID string `json:"search_engine_id"`
+	Enabled           bool     `json:"enabled"`            // 是否启用
+	Provider          string   `json:"provider"`           // 搜索引擎提供商ID
+	APIKey            string   `json:"api_key"`            // API密钥（如果需要）
+	MaxResults        int      `json:"max_results"`        // 最大搜索结果数
+	SearchEngineID    string   `json:"search_engine_id"`   // 搜索引擎ID
+	IncludeDate       bool     `json:"include_date"`       // 是否包含日期
+	CompressionMethod string   `json:"compression_method"` // 压缩方法：none, summary, extract, rag
+	Blacklist         []string `json:"blacklist"`          // 黑名单规则列表
+	// RAG压缩相关配置
+	EmbeddingModelID   string `json:"embedding_model_id,omitempty"`  // 嵌入模型ID
+	EmbeddingDimension int    `json:"embedding_dimension,omitempty"` // 嵌入维度
+	RerankModelID      string `json:"rerank_model_id,omitempty"`     // 重排模型ID
+	DocumentFragments  int    `json:"document_fragments,omitempty"`  // 文档片段数量
 }
 
-// ConversationConfig 对话配置
+// ConversationConfig 对话配置（对齐 WeKnora）
 type ConversationConfig struct {
 	Prompt               string  `json:"prompt"`
 	ContextTemplate      string  `json:"context_template"`
@@ -77,9 +86,16 @@ type ConversationConfig struct {
 	RerankThreshold      float64 `json:"rerank_threshold"`
 	EnableRewrite        bool    `json:"enable_rewrite"`
 	EnableQueryExpansion bool    `json:"enable_query_expansion"`
-	FallbackStrategy     string  `json:"fallback_strategy"`
-	FallbackResponse     string  `json:"fallback_response"`
-	FallbackPrompt       string  `json:"fallback_prompt"`
+	// 模型配置
+	SummaryModelID string `json:"summary_model_id"`
+	RerankModelID  string `json:"rerank_model_id"`
+	// 降级策略
+	FallbackStrategy string `json:"fallback_strategy"`
+	FallbackResponse string `json:"fallback_response"`
+	FallbackPrompt   string `json:"fallback_prompt"`
+	// 重写提示词
+	RewritePromptSystem string `json:"rewrite_prompt_system"`
+	RewritePromptUser   string `json:"rewrite_prompt_user"`
 }
 
 // CreateTenantRequest 创建租户请求
@@ -175,12 +191,11 @@ type TenantKVRequest struct {
 	Key string `uri:"key" binding:"required"`
 }
 
-// TenantKVResponse KV 配置响应
+// TenantKVResponse KV 配置响应（对齐前端期望格式）
 type TenantKVResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message,omitempty"`
-	Key     string      `json:"key"`
-	Value   interface{} `json:"value"`
+	Data    interface{} `json:"data"`
 }
 
 // UpdateTenantKVRequest 更新 KV 配置请求
@@ -189,8 +204,9 @@ type UpdateTenantKVRequest struct {
 	Value interface{} `json:"value" binding:"required"`
 }
 
-// UpdateTenantKVResponse 更新 KV 配置响应
+// UpdateTenantKVResponse 更新 KV 配置响应（对齐 WeKnora）
 type UpdateTenantKVResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
 }

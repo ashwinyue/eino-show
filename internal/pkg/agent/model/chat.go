@@ -222,9 +222,23 @@ func NewChatModelFromDB(ctx context.Context, modelName, modelSource string, para
 	var baseURL string
 
 	switch modelSource {
-	case "aliyun", "dashscope", "DashScope", "Aliyun", "MODEL_SOURCE_ZHIPU", "zhipu":
+	case "remote", "Remote", "MODEL_SOURCE_REMOTE":
+		// remote 按 OpenAI 兼容接口处理（对齐 WeKnora ModelSourceRemote）
+		// 并且要求 DB parameters 提供 base_url/api_key，避免回退到本地环境变量
+		if params.BaseURL == "" {
+			return nil, fmt.Errorf("remote model requires base_url in parameters")
+		}
+		if params.APIKey == "" {
+			return nil, fmt.Errorf("remote model requires api_key in parameters")
+		}
+		provider = "openai"
+	case "aliyun", "dashscope", "DashScope", "Aliyun":
 		provider = DashScopeProvider
 		baseURL = DashScopeBaseURL
+	case "zhipu", "Zhipu", "MODEL_SOURCE_ZHIPU":
+		// 智谱使用 OpenAI 兼容接口
+		provider = "openai"
+		// BaseURL 由数据库 parameters 提供，不使用默认值
 	case "openai", "OpenAI":
 		provider = "openai"
 	case "ark", "Ark":
