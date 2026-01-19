@@ -128,11 +128,21 @@ func Init(ctx context.Context) {
 		closeFn:     closeFn,
 	}
 
-	// 同时注册本地日志回调（输出到终端，格式与 coze-loop 统一）
+	// 同时注册本地日志回调（输出到文件，格式与 coze-loop 统一）
 	localLogger := NewLocalLoggerHandler()
 	globalHandlers = append(globalHandlers, localLogger)
 	callbacks.AppendGlobalHandlers(localLogger)
-	log.Infow("local trace logger enabled")
+
+	// 输出日志配置信息
+	logPath := os.Getenv("TRACE_LOG_FILE")
+	if logPath == "" {
+		logPath = "logs/trace.log"
+	}
+	log.Infow("local trace logger enabled",
+		"log_file", logPath,
+		"detail", os.Getenv("TRACE_LOG_DETAIL") == "true",
+		"debug", os.Getenv("DEBUG") == "true",
+	)
 }
 
 // GetHandlers 获取全局回调处理器

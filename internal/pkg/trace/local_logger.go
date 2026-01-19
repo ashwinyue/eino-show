@@ -3,14 +3,15 @@ package trace
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+
+	"github.com/ashwinyue/eino-show/internal/pkg/log"
 )
 
 // TraceLog 追踪日志结构（与 coze-loop tracespec 格式统一）
@@ -88,16 +89,39 @@ type spanInfo struct {
 type ctxKey struct{}
 
 // LocalLoggerHandler 本地日志回调处理器
+// 使用项目的 zap logger 实现统一的日志管理
 type LocalLoggerHandler struct {
 	mu      sync.Mutex
 	spans   map[string]*spanInfo
 	counter int64
+	logger  log.Logger // zap logger 实例
+	detail  bool       // 是否输出详细信息
 }
 
 // NewLocalLoggerHandler 创建本地日志回调处理器
+// 使用项目的 zap 基础设施，输出到独立文件 logs/trace.log
 func NewLocalLoggerHandler() *LocalLoggerHandler {
+	// 从环境变量读取配置
+	logPath := os.Getenv("TRACE_LOG_FILE")
+	if logPath == "" {
+		logPath = "logs/trace.log"
+	}
+
+	detail := os.Getenv("TRACE_LOG_DETAIL") == "true"
+
+	// 创建独立的 trace logger（不影响主 logger）
+	traceLogger := log.New(&log.Options{
+		Level:             "info", // 追踪日志固定为 info 级别
+		Format:            "json", // JSON 格式便于解析
+		OutputPaths:       []string{logPath},
+		DisableCaller:     true, // 追踪日志不需要调用位置
+		DisableStacktrace: true, // 追踪日志不需要堆栈
+	})
+
 	return &LocalLoggerHandler{
-		spans: make(map[string]*spanInfo),
+		spans:  make(map[string]*spanInfo),
+		logger: traceLogger,
+		detail: detail,
 	}
 }
 
@@ -328,9 +352,42 @@ func (h *LocalLoggerHandler) convertMessage(msg *schema.Message) TraceMessage {
 }
 
 func (h *LocalLoggerHandler) logTrace(event string, trace *TraceLog) {
-	data, _ := json.Marshal(trace)
-	// 使用 fmt.Println 确保输出到终端
-	fmt.Printf("[TRACE] %s: %s\n", event, string(data))
+	// 使用 zap 的结构化日志
+	// 简洁模式：只记录关键字段
+	kvs := []any{
+		"event", event,
+		"trace_id", trace.TraceID,
+		"span_id", trace.SpanID,
+		"component", trace.Component,
+		"type", trace.Type,
+		"name", trace.Name,
+		"start_time", trace.StartTime.Format(time.RFC3339Nano),
+	}
+
+	// 如果有结束时间，添加持续时长
+	if !trace.EndTime.IsZero() {
+		kvs = append(kvs, "duration_ms", trace.Duration)
+		kvs = append(kvs, "end_time", trace.EndTime.Format(time.RFC3339Nano))
+	}
+
+	// 如果有错误，记录错误信息
+	if trace.Error != "" {
+		kvs = append(kvs, "error", trace.Error)
+		h.logger.Errorw("[TRACE] "+event, kvs...)
+		return
+	}
+
+	// 详细模式：记录完整的 input/output
+	if h.detail {
+		if trace.Input != nil {
+			kvs = append(kvs, "input", trace.Input)
+		}
+		if trace.Output != nil {
+			kvs = append(kvs, "output", trace.Output)
+		}
+	}
+
+	h.logger.Infow("[TRACE] "+event, kvs...)
 }
 
 // 确保实现 callbacks.Handler 接口
